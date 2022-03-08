@@ -183,6 +183,7 @@ inculp_ntw <- add_vertices(inculp_ntw,length(add_nodes),attr=list(name=add_nodes
 V(inculp_ntw)$deponent <- ifelse(V(inculp_ntw)$name %in% deponents_ids,'deponent','target')
 
 # Visualisation of the network
+set.seed(0708)
 inculp_layout <- layout_with_kk(inculp_ntw)
 
 jpeg(filename='Network of inculpations.jpeg',width=12,height=12,units='in',res=1000)
@@ -335,8 +336,27 @@ rm(inculp_time);rm(p1);rm(p2)
 
 ########################################################################################################################
 
-# EVOLUTION OF THE INCULPATIONS OVER TIME 
+# INCULPATIONS BY VILLAGE
+# Add location names to people's dataset
+people <- merge(people,places[,c('place_id','placename')],by='place_id',all.x=TRUE) 
+V(inculp_ntw)$village <- people[match(V(inculp_ntw)$name,people$name),]$placename
 
+# Visualisation
+jpeg(filename='Network of inculpations by village.jpeg',width=12,height=12,units='in',res=1000)
+plot(inculp_ntw,
+     vertex.label=NA,vertex.size=2,
+     vertex.color=ifelse(V(inculp_ntw)$village == 'Mas-Saintes-Puelles','sienna3',
+                         ifelse(V(inculp_ntw)$village == 'Saint-Martin-Lalande','springgreen4','gold')),
+     edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
+     layout=inculp_layout,
+     main='Inculpations contained in Manuscript 609 (Bibliotheque de Toulouse)')
+legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Somewhere else'),
+       fill=c('sienna3','springgreen4','gold'))
+dev.off()
+
+########################################################################################################################
+
+# EVOLUTION OF THE INCULPATIONS OVER TIME 
 # Let's make snapshot of the network based on targets identified by day
 key_dates <- as.Date(unique(E(inculp_ntw)$dep_date))
 
@@ -356,19 +376,20 @@ for(i in match(as.character(dates_to_plot),as.character(names(snapshot_ntw)))){
   plot(snapshot_ntw[[i]],
        vertex.label=NA,vertex.size=2,
        vertex.color=ifelse(degree(snapshot_ntw[[i]],mode='total') == 0,grey(0.5,0.2),
-                           ifelse(V(snapshot_ntw[[i]])$deponent == 'deponent','firebrick','dodgerblue')),
+                           ifelse(V(snapshot_ntw[[i]])$village == 'Mas-Saintes-Puelles','sienna3',
+                                  ifelse(V(inculp_ntw)$village == 'Saint-Martin-Lalande','springgreen4','gold'))),
        vertex.frame.color=ifelse(degree(snapshot_ntw[[i]],mode='total') == 0,grey(0,0.2),'black'),
        edge.width=.5,edge.arrow.size=.15,edge.lty=1,
        edge.color= ifelse(E(snapshot_ntw[[i]])$dep_date != key_dates[i],gray(0.15),'red'),
        layout=inculp_layout,
        main=paste('Inculpations by',names(snapshot_ntw)[[i]]),sep=' ')
 }
-legend("bottomright",bty="o",legend=c('Deponent','Target'),fill=c('firebrick','dodgerblue'))
+legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Somewhere else'),
+       fill=c('sienna3','springgreen4','gold'))
 dev.off()
 
-rm(dates_to_plot);rm(key_dates)
+rm(dates_to_plot);rm(key_dates);rm(i)
 
 ########################################################################################################################
-
 # Save image
 save.image('Toulouse_data.RData')
