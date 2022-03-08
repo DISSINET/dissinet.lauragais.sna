@@ -129,7 +129,7 @@ world <- ne_countries(scale = 'large', returnclass = "sf")
 villages$placename[villages$placename %in% c('Lasbordes','Fendeille','Castelnaudary','Montferrand',
                                              'Villeneuve-la-Comptal')] <- NA # to allow visualisation
 
-jpeg(filename='Map.jpeg',width=14,height=7,units='in',res=300)
+jpeg(filename='Map.jpeg',width=14,height=7,units='in',res=1000)
 ggplot(data = world) + 
   geom_sf(fill= 'antiquewhite') + 
   geom_point(data=villages,aes(x = long, y = lat, size = targets),alpha=.65,colour='firebrick') +
@@ -185,7 +185,7 @@ V(inculp_ntw)$deponent <- ifelse(V(inculp_ntw)$name %in% deponents_ids,'deponent
 # Visualisation of the network
 inculp_layout <- layout_with_kk(inculp_ntw)
 
-jpeg(filename='Network of inculpations.jpeg',width=12,height=12,units='in',res=300)
+jpeg(filename='Network of inculpations.jpeg',width=12,height=12,units='in',res=1000)
 plot(inculp_ntw,
      vertex.label=NA,vertex.size=2,vertex.color=ifelse(V(inculp_ntw)$deponent == 'deponent','firebrick','dodgerblue'),
      edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
@@ -250,7 +250,7 @@ rm(nodesSet1);rm(nodesSet2);rm(edgeList);rm(edgeListVec);rm(add_deps)
 # Visualisation of the network
 inculp_doc_layout <- layout_with_kk(g)
 
-jpeg(filename='Bipartite Network of inculpations.jpeg',width=12,height=12,units='in',res=300)
+jpeg(filename='Bipartite Network of inculpations.jpeg',width=12,height=12,units='in',res=1000)
 plot(g,
      vertex.label=NA,
      vertex.size=2,vertex.color=ifelse(V(g)$type == 'deposition','firebrick','dodgerblue'),
@@ -297,8 +297,6 @@ for(i in inculp_time$dep_date){
 # Cumulative sum of targets
 temp_data$cum_inculp <- cumsum(temp_data$new_inculp)
 
-rm(inculp_time)
-
 # Visualisation
 grid.background <- theme_bw()+
   theme(plot.background=element_blank(),panel.grid.minor=element_blank(),panel.border=element_blank())+
@@ -332,6 +330,43 @@ p2 <- ggplot() +
 jpeg(filename='Inculpations over time.jpeg',width=12,height=7,units='in',res=1000)
 ggarrange(p1,p2,nrow=1,labels=c('',''))
 dev.off()
+
+rm(inculp_time);rm(p1);rm(p2)
+
+########################################################################################################################
+
+# EVOLUTION OF THE INCULPATIONS OVER TIME 
+
+# Let's make snapshot of the network based on targets identified by day
+key_dates <- as.Date(unique(E(inculp_ntw)$dep_date))
+
+snapshot_ntw <- list()
+for(i in seq_along(key_dates)){
+  snapshot_ntw[[i]] <- delete_edges(inculp_ntw,which(as.Date(E(inculp_ntw)$dep_date) > key_dates[[i]]))
+}
+names(snapshot_ntw) <- as.character(key_dates) # add names with the date
+
+# Let's choose the 9 dates with the highest number of new inculpations
+dates_to_plot <- temp_data[temp_data$new_inculp > 20,]$time
+
+# Visualisation
+jpeg(filename='Evolution.jpeg',width=18,height=18,units='in',res=1000)
+par(mfrow=c(3,3)) # A 3 by 3 figure
+for(i in match(as.character(dates_to_plot),as.character(names(snapshot_ntw)))){
+  plot(snapshot_ntw[[i]],
+       vertex.label=NA,vertex.size=2,
+       vertex.color=ifelse(degree(snapshot_ntw[[i]],mode='total') == 0,grey(0.5,0.2),
+                           ifelse(V(snapshot_ntw[[i]])$deponent == 'deponent','firebrick','dodgerblue')),
+       vertex.frame.color=ifelse(degree(snapshot_ntw[[i]],mode='total') == 0,grey(0,0.2),'black'),
+       edge.width=.5,edge.arrow.size=.15,edge.lty=1,
+       edge.color= ifelse(E(snapshot_ntw[[i]])$dep_date != key_dates[i],gray(0.15),'red'),
+       layout=inculp_layout,
+       main=paste('Inculpations by',names(snapshot_ntw)[[i]]),sep=' ')
+}
+legend("bottomright",bty="o",legend=c('Deponent','Target'),fill=c('firebrick','dodgerblue'))
+dev.off()
+
+rm(dates_to_plot);rm(key_dates)
 
 ########################################################################################################################
 
