@@ -332,3 +332,8 @@ p2 <- ggplot() +
 jpeg(filename='Inculpations over time.jpeg',width=12,height=7,units='in',res=1000)
 ggarrange(p1,p2,nrow=1,labels=c('',''))
 dev.off()
+
+########################################################################################################################
+
+# Save image
+save.image('Toulouse_data.RData')
