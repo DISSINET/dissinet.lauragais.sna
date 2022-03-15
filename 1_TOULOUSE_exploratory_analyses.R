@@ -173,26 +173,46 @@ edge_list <- edge_list[,c('deponent_pers_id','pers_id','dep_date','document_id',
 # Convert in an igraph object
 inculp_ntw <- graph_from_edgelist(as.matrix.data.frame(edge_list[,c('deponent_pers_id','pers_id')]),
                                   directed = TRUE)
+
 # edge attributes (date of the deposition)
 E(inculp_ntw)$dep_date <- as.character(edge_list$dep_date) # add date of the inculpation
 # add deponents who did not inculpate anybodfy as isolates
 '%!in%' <- function(x,y)!('%in%'(x,y))
 add_nodes <- deponents_ids[deponents_ids %!in% V(inculp_ntw)$name] 
 inculp_ntw <- add_vertices(inculp_ntw,length(add_nodes),attr=list(name=add_nodes))
-# node attribute: If the person deposed or not
+# Node attributes: If the person deposed or not
 V(inculp_ntw)$deponent <- ifelse(V(inculp_ntw)$name %in% deponents_ids,'deponent','target')
+# Gender
+people_in_ntw <- people[people$name %in% V(inculp_ntw)$name,] # only people in the network
+rownames(people_in_ntw) <- 1:nrow(people_in_ntw) 
+people_in_ntw <- people_in_ntw[match(V(inculp_ntw)$name,people_in_ntw$name),] # same order of appearance
+people_in_ntw$gender[people_in_ntw$gender %in% c('','unknown')] <- NA # people with unknown gender to NA
+V(inculp_ntw)$gender <- people_in_ntw$gender
+# Surname (for family ties)
+V(inculp_ntw)$family <- people_in_ntw$surname
 
 # Visualisation of the network
 set.seed(0708)
 inculp_layout <- layout_with_kk(inculp_ntw)
 
-jpeg(filename='Network of inculpations.jpeg',width=12,height=12,units='in',res=1000)
+# By deponent vs. non-deponent (target)
+jpeg(filename='Network of inculpations (deponents).jpeg',width=12,height=12,units='in',res=1000)
 plot(inculp_ntw,
      vertex.label=NA,vertex.size=2,vertex.color=ifelse(V(inculp_ntw)$deponent == 'deponent','firebrick','dodgerblue'),
      edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
      layout=inculp_layout,
      main='Inculpations contained in Manuscript 609 (Bibliotheque de Toulouse)')
 legend("bottomright",bty="o",legend=c('Deponent','Target'),fill=c('firebrick','dodgerblue'))
+dev.off()
+
+# By gender
+jpeg(filename='Network of inculpations (gender).jpeg',width=12,height=12,units='in',res=1000)
+plot(inculp_ntw,
+     vertex.label=NA,vertex.size=2,vertex.color=ifelse(V(inculp_ntw)$gender == 'male','royalblue','magenta'),
+     edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
+     layout=inculp_layout,
+     main='Inculpations contained in Manuscript 609 (Bibliotheque de Toulouse)')
+legend("bottomright",bty="o",legend=c('Male','Female'),fill=c('royalblue','magenta'))
 dev.off()
 
 # Extraction of number of targets per deponent (and inculpations received)
@@ -342,16 +362,17 @@ people <- merge(people,places[,c('place_id','placename')],by='place_id',all.x=TR
 V(inculp_ntw)$village <- people[match(V(inculp_ntw)$name,people$name),]$placename
 
 # Visualisation
-jpeg(filename='Network of inculpations by village.jpeg',width=12,height=12,units='in',res=1000)
+jpeg(filename='Network of inculpations (village).jpeg',width=12,height=12,units='in',res=1000)
 plot(inculp_ntw,
      vertex.label=NA,vertex.size=2,
      vertex.color=ifelse(V(inculp_ntw)$village == 'Mas-Saintes-Puelles','sienna3',
-                         ifelse(V(inculp_ntw)$village == 'Saint-Martin-Lalande','springgreen4','gold')),
+                         ifelse(V(inculp_ntw)$village == 'Saint-Martin-Lalande','springgreen4',
+                                ifelse(V(inculp_ntw)$village == 'Laurac','deeppink','gold'))),
      edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
      layout=inculp_layout,
      main='Inculpations contained in Manuscript 609 (Bibliotheque de Toulouse)')
-legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Somewhere else'),
-       fill=c('sienna3','springgreen4','gold'))
+legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Laurac','Somewhere else'),
+       fill=c('sienna3','springgreen4','deeppink','gold'))
 dev.off()
 
 ########################################################################################################################
@@ -377,15 +398,16 @@ for(i in match(as.character(dates_to_plot),as.character(names(snapshot_ntw)))){
        vertex.label=NA,vertex.size=2,
        vertex.color=ifelse(degree(snapshot_ntw[[i]],mode='total') == 0,grey(0.5,0.2),
                            ifelse(V(snapshot_ntw[[i]])$village == 'Mas-Saintes-Puelles','sienna3',
-                                  ifelse(V(inculp_ntw)$village == 'Saint-Martin-Lalande','springgreen4','gold'))),
+                                  ifelse(V(snapshot_ntw[[i]])$village == 'Saint-Martin-Lalande','springgreen4',
+                                         ifelse(V(snapshot_ntw[[i]])$village == 'Laurac','deeppink','gold')))),
        vertex.frame.color=ifelse(degree(snapshot_ntw[[i]],mode='total') == 0,grey(0,0.2),'black'),
        edge.width=.5,edge.arrow.size=.15,edge.lty=1,
        edge.color= ifelse(E(snapshot_ntw[[i]])$dep_date != key_dates[i],gray(0.15),'red'),
        layout=inculp_layout,
        main=paste('Inculpations by',names(snapshot_ntw)[[i]]),sep=' ')
 }
-legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Somewhere else'),
-       fill=c('sienna3','springgreen4','gold'))
+legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Laurac','Somewhere else'),
+       fill=c('sienna3','springgreen4','deeppink','gold'))
 dev.off()
 
 rm(dates_to_plot);rm(key_dates);rm(i)
