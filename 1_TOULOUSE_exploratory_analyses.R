@@ -105,37 +105,15 @@ people[people$name == 'Guilhelma_sister_Arnald_Maiestre_MSP-AU',]$surname <- 'Ma
 people[people$name == 'mother_of_Saramunda_del_Mas_CMS-AU',]$surname <- 'Mas'
 people[people$name == 'mother_of_Cerdana_de_Lalanda_SML-AU',]$surname <- 'Lalanda'
 
-unique_names <- unique(people$fullname) # Probably 1,082 individuals, NOT 1,126
+# People with the exact forename and surname
+length(unique(people$fullname)) # Potentially 1,082 individuals, instead of 1,126 (maybe some duplicated)
 
-# Use the full names in the other data files to facilitate connection later
-depositions <- merge(depositions,
-                     people[,c('name','fullname')],by.x='deponent_pers_id',by.y='name',all.x=TRUE)
-reportees <- merge(reportees,
-                   people[,c('name','fullname')],by.x='pers_id',by.y='name',all.x=TRUE)
+# If we also consider there place of living: people with the exact name and place of living
+people <- merge(people,places[,c('place_id','placename')],by='place_id',all.x=TRUE)
+nrow(people[!duplicated(people[,c('fullname','placename')]),]) # Potentially 1,100 individuals, some with the same name
 
-# Let's remove the duplicates 
-people <- merge(people,places[,c('place_id','placename')],by='place_id',all.x=TRUE) # first, let's get villages
-
-people <- people[!duplicated(people[,c('fullname','placename')]),] # if full name and place_id are the same, we only keep one
-
-# If we have the same name but two different places...
-'%!in%' <- function(x,y)!('%in%'(x,y))
-no_dup <- people[people$fullname %!in% people[duplicated(people[,'fullname']),]$fullname,]
-yes_dup <- people[people$fullname %in% people[duplicated(people[,'fullname']),]$fullname,]
-# In most cases, are individuals reported living both in Mas-Saintes-Puelles and Saint-Martin-Lalande
-yes_dup[yes_dup$placename %!in% c('Mas-Saintes-Puelles','Saint-Martin-Lalande'),]
-# This are just cases where one row is missing id_place 
-yes_dup1 <- yes_dup[yes_dup$fullname %in% c('Bernarda','Bertrand Marti','Guilhem Vidal','P Bernard')
-                    & yes_dup$placename %in% c('Mas-Saintes-Puelles','Saint-Martin-Lalande'),]
-# This are both from the two villages
-yes_dup2 <- yes_dup[yes_dup$fullname %!in% c('Bernarda','Bertrand Marti','Guilhem Vidal','P Bernard'),]
-yes_dup2$placename <- 'both'
-yes_dup2 <- yes_dup2[!duplicated(yes_dup2[,c('fullname')]),]
-
-people <- rbind(no_dup,yes_dup1,yes_dup2)
-
-# Remove unnecessary objects
-rm(yes_dup);rm(yes_dup1);rm(yes_dup2);rm(no_dup)
+# For now, however, I will keep the 1,126 individuals (no merging two labels together)
+unique_names <- people$name
 
 ########################################################################################################################
 
@@ -147,7 +125,7 @@ depositions <- depositions[depositions$doc_stat != 'exclude',] # Exclude one dup
 summary(factor(depositions$doc_stat)) # We have 684 full depositions, and one in two pieces (685 in total)
 partial_dep <- depositions$document_id[depositions$doc_stat == 'partial']
 depositions_ids <- depositions$document_id
-length(unique(depositions$fullname)) # 651 unique deponents
+length(unique(depositions$deponent_pers_id)) # 668 unique deponents
 # Village where the deposition was obtained
 depositions$village <- factor(ifelse(depositions$group_name %in% c('De_Manso_Sanctarum_Puellarum_1',
                                                                    'De_Manso_Sanctarum_Puellarum_2'),
@@ -193,15 +171,15 @@ range(events$event_date,na.rm=TRUE)
 # DEPONENTS AND PEOPLE REFERRED IN THOSE EVENTS
 
 # In this dataset, people roles are included: dep (deponent), par (participant), inf (infermus), her (hereticus), etc.
-# First, I isolated the 651 unique deponents
-deponents_ids <- unique(depositions$fullname)
-deponents <- people[people$fullname %in% deponents_ids,]
+# First, I isolated the unique deponents
+deponents_ids <- unique(depositions$deponent_pers_id)
+deponents <- people[people$name %in% deponents_ids,]
 unique(deponents$placename) # These come from 5 different villages
 summary(factor(deponents$placename)) # Mostly from Le Mas and Saint-Martin though
 
-targets_ids <- unique(reportees[reportees$identified == 1,]$fullname) 
-length(targets_ids) # 624 people are reported
-targets <- people[people$fullname %in% targets_ids,]
+targets_ids <- unique(reportees[reportees$identified == 1,]$pers_id) 
+length(targets_ids) # 641 people are reported
+targets <- people[people$name %in% targets_ids,]
 unique(targets$placename) # These come from 49 different villages
 summary(factor(targets$placename)) 
 
@@ -210,7 +188,7 @@ summary(factor(targets$placename))
 # VILLAGES
 
 # Targets distribution by village
-villages <- as.data.frame(summary(factor(targets$placename))[c(-3,-50)]) # remove when the place is empty
+villages <- as.data.frame(summary(factor(targets$placename))[c(-50)]) # remove when the place is empty
 names(villages) <- 'targets'
 villages$targets <- (villages$targets)
 villages <- cbind(places[places$placename %in% targets$placename,],villages) # Obtaining the coordinates in a map
@@ -242,19 +220,16 @@ rm(world)
 
 reportees$document_id <- str_sub(reportees$event_id,1,10) # add the document ID
 # Joined deponents with their reportees
-edge_list <- merge(reportees[,c('document_id','fullname','role','event_id')],
-                   depositions[,c('document_id','dep_date','fullname','village')],
+edge_list <- merge(reportees[,c('document_id','pers_id','role','event_id')],
+                   depositions[,c('document_id','dep_date','deponent_pers_id','village')],
                    by='document_id',all.x=TRUE)
-
-names(edge_list)[2] <- 'pers_id' 
-names(edge_list)[6] <- 'deponent_pers_id'
 
 # At this stage let's correct the two partial depositions as only one
 edge_list[edge_list$document_id %in% partial_dep,]
 # correct date
-edge_list[edge_list$document_id == partial_dep[2],]$dep_date <- depositions[depositions$document_id == partial_dep[1],]$dep_date
+edge_list[edge_list$document_id == partial_dep[1],]$dep_date <- depositions[depositions$document_id == partial_dep[2],]$dep_date
 # change the ID too
-edge_list[edge_list$document_id == partial_dep[2],]$document_id <- depositions[depositions$document_id == partial_dep[1],]$document_id
+edge_list[edge_list$document_id == partial_dep[1],]$document_id <- depositions[depositions$document_id == partial_dep[2],]$document_id
 
 edge_list <- edge_list[edge_list$document_id %in% depositions_ids,] # Exclude redundant documents
 edge_list <- edge_list[edge_list$deponent_pers_id != edge_list$pers_id,] # Remove self inculpations
@@ -269,18 +244,23 @@ inculp_ntw <- graph_from_edgelist(as.matrix.data.frame(edge_list[,c('deponent_pe
 
 # edge attributes (date of the deposition)
 E(inculp_ntw)$dep_date <- as.character(edge_list$dep_date) # add date of the inculpation
-# add deponents who did not inculpate anybodfy as isolates
+# add deponents who did not inculpate anybody as isolates
+'%!in%' <- function(x,y)!('%in%'(x,y))
 add_nodes <- deponents_ids[deponents_ids %!in% V(inculp_ntw)$name] 
 inculp_ntw <- add_vertices(inculp_ntw,length(add_nodes),attr=list(name=add_nodes))
 # Node attributes: If the person deposed or not
 V(inculp_ntw)$deponent <- ifelse(V(inculp_ntw)$name %in% deponents_ids,'deponent','target')
+
 # Gender
 rownames(people) <- 1:nrow(people) 
-people <- people[match(V(inculp_ntw)$name,people$fullname),] # same order of appearance
+people <- people[match(V(inculp_ntw)$name,people$name),] # same order of appearance
 people$gender[people$gender %in% c('','unknown')] <- NA # people with unknown gender to NA
 V(inculp_ntw)$gender <- people$gender
 # Surname (for family ties)
+people$surname[people$surname %in% c('','B','F')] <- NA
 V(inculp_ntw)$family <- people$surname
+# Village
+V(inculp_ntw)$village <- people$placename
 
 # Visualisation of the network
 set.seed(0708)
@@ -306,12 +286,26 @@ plot(inculp_ntw,
 legend("bottomright",bty="o",legend=c('Male','Female'),fill=c('royalblue','magenta'))
 dev.off()
 
+# By village
+jpeg(filename='Network of inculpations (village).jpeg',width=12,height=12,units='in',res=1000)
+plot(inculp_ntw,
+     vertex.label=NA,vertex.size=2,
+     vertex.color=ifelse(V(inculp_ntw)$village == 'Mas-Saintes-Puelles','sienna3',
+                         ifelse(V(inculp_ntw)$village == 'Saint-Martin-Lalande','springgreen4',
+                                ifelse(V(inculp_ntw)$village == 'Laurac','deeppink','gold'))),
+     edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
+     layout=inculp_layout,
+     main='Inculpations contained in Manuscript 609 (Bibliotheque de Toulouse)')
+legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Laurac','Somewhere else'),
+       fill=c('sienna3','springgreen4','deeppink','gold'))
+dev.off()
+
 # Extraction of number of targets per deponent (and inculpations received)
-inculp_by_deponent <- data.frame(fullname = V(inculp_ntw)$name,
+inculp_by_deponent <- data.frame(name = V(inculp_ntw)$name,
                                  inculp_sent = degree(inculp_ntw,mode='out'), # inculpations sent
                                  inculp_rec = degree(inculp_ntw,mode='in')) # inculpations received
-inculp_by_deponent <- inculp_by_deponent[inculp_by_deponent$fullname %in% deponents_ids,] # only deponents
-deponents <- merge(deponents,inculp_by_deponent,by='fullname')
+inculp_by_deponent <- inculp_by_deponent[inculp_by_deponent$name %in% deponents_ids,] # only deponents
+deponents <- merge(deponents,inculp_by_deponent,by='name')
 
 rm(inculp_by_deponent);rm(add_nodes)
 
@@ -449,27 +443,6 @@ rm(inculp_time);rm(p1);rm(p2)
 
 ########################################################################################################################
 
-# INCULPATIONS BY VILLAGE
-
-# Add location names to people's dataset
-V(inculp_ntw)$village <- people[match(V(inculp_ntw)$name,people$fullname),]$placename
-
-# Visualisation
-jpeg(filename='Network of inculpations (village).jpeg',width=12,height=12,units='in',res=1000)
-plot(inculp_ntw,
-     vertex.label=NA,vertex.size=2,
-     vertex.color=ifelse(V(inculp_ntw)$village == 'Mas-Saintes-Puelles','sienna3',
-                         ifelse(V(inculp_ntw)$village == 'Saint-Martin-Lalande','springgreen4',
-                                ifelse(V(inculp_ntw)$village == 'both','deeppink','gold'))),
-     edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
-     layout=inculp_layout,
-     main='Inculpations contained in Manuscript 609 (Bibliotheque de Toulouse)')
-legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','both','Somewhere else'),
-       fill=c('sienna3','springgreen4','deeppink','gold'))
-dev.off()
-
-########################################################################################################################
-
 # EVOLUTION OF THE INCULPATIONS OVER TIME 
 
 # Let's make snapshot of the network based on targets identified by day
@@ -493,14 +466,14 @@ for(i in match(as.character(dates_to_plot),as.character(names(snapshot_ntw)))){
        vertex.color=ifelse(degree(snapshot_ntw[[i]],mode='total') == 0,grey(0.5,0.2),
                            ifelse(V(snapshot_ntw[[i]])$village == 'Mas-Saintes-Puelles','sienna3',
                                   ifelse(V(snapshot_ntw[[i]])$village == 'Saint-Martin-Lalande','springgreen4',
-                                         ifelse(V(snapshot_ntw[[i]])$village == 'both','deeppink','gold')))),
+                                         ifelse(V(snapshot_ntw[[i]])$village == 'Laurac','deeppink','gold')))),
        vertex.frame.color=ifelse(degree(snapshot_ntw[[i]],mode='total') == 0,grey(0,0.2),'black'),
        edge.width=.5,edge.arrow.size=.15,edge.lty=1,
        edge.color= ifelse(E(snapshot_ntw[[i]])$dep_date != key_dates[i],gray(0.15),'red'),
        layout=inculp_layout,
        main=paste('Inculpations by',names(snapshot_ntw)[[i]]),sep=' ')
 }
-legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','both','Somewhere else'),
+legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Laurac','Somewhere else'),
        fill=c('sienna3','springgreen4','deeppink','gold'))
 dev.off()
 
