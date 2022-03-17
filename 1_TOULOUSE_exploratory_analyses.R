@@ -8,7 +8,7 @@
 
 rm(list=ls())
 # Required packages
-library(stringr);library(igraph);library(ggplot2);library(ggrepel);library(ggpubr)
+library(stringr);library(igraph);library(ggplot2);library(ggrepel);library(ggpubr);library(isnar)
 library(sf);library(rnaturalearth);library(rnaturalearthhires);library(ggspatial)
  
 # I corrected 2 lines of the .txt: d'Arago for de~Arago (line 112), and mother of Saramunda del Mas (line 1120)
@@ -212,7 +212,7 @@ ggplot(data = world) +
   scale_size_continuous(trans = 'sqrt')
 dev.off()
 
-rm(world)
+rm(world);rm(villages)
 
 ########################################################################################################################
 
@@ -476,6 +476,172 @@ dev.off()
 rm(dates_to_plot);rm(key_dates);rm(i)
 
 ########################################################################################################################
+
+# CREATION OF A NETWORK: PRESENCE IN THE SAME EVENT
+
+event_person <- dep_event_people
+# Let's isolate those who can be identified
+event_person$identified <- 1*!(str_detect(event_person$pers_id,'unknown') | # not unknown
+                                 str_detect(event_person$pers_id,'not_named') | # not-named
+                                 str_detect(event_person$pers_id,'unnamed') | # unnamed
+                                 str_detect(event_person$pers_id,'unclear') | # unclear
+                                 str_detect(event_person$pers_id,'unrecalled') | # unrecalled
+                                 str_detect(event_person$pers_id,'not_recalled') |
+                                 str_detect(event_person$pers_id,'in_public')) # in public
+event_person <- event_person[event_person$identified == 1,]
+
+# Only depositions (exclude recitations)
+event_person$doc_id <- str_sub(event_person$event_id,1,10)
+event_person <- event_person[event_person$doc_id %in% depositions_ids,]
+# Keep only those mentioned as heretics, participants, owners of the house, or sick people
+event_person <- event_person[event_person$role %in% c('her','par','own','inf'),]
+
+# Let's create a bipartite network now
+nodesSet1 <- unique(event_person$event_id)
+nodesSet2 <- unique(event_person$pers_id)
+edgeList <- event_person
+
+g <- graph.empty()
+g <- add.vertices(g,nv=length(nodesSet1),attr=list(name=nodesSet1,
+                                                   type=rep('event',length(nodesSet1))))
+g <- add.vertices(g,nv=length(nodesSet2),attr=list(name=nodesSet2,
+                                                   type=rep('person',length(nodesSet2))))
+# we need to turn edgeList into a vector (and using names instead of indexes)
+edgeListVec <- as.vector(t(as.matrix(data.frame(S1=edgeList$event_id,
+                                                S2=edgeList$pers_id))))
+g <- add.edges(g,edgeListVec)
+is.bipartite(g)
+# Any individual that is not in the inculpation network?
+nodesSet2[!(V(g)$name[V(g)$type == 'person'] %in% unique_names)]
+
+# add people
+add_nodes <- unique_names[unique_names %!in% nodesSet2]
+g <- add_vertices(g,length(add_nodes),
+                  attr=list(name=add_nodes,type='person'))
+
+# Make undirected
+g <- as.undirected(g,mode='collapse')
+
+# Visualisation
+jpeg(filename='Network event-person (bipartite)).jpeg',width=12,height=12,units='in',res=1000)
+plot(g,
+     vertex.label=NA,
+     vertex.size=2,vertex.color=ifelse(V(g)$type == 'event','firebrick','dodgerblue'),
+     vertex.shape=ifelse(V(g)$type == 'event','square','circle'),
+     edge.arrow.size=0,edge.color=gray(0.35),edge.lty=1,
+     layout=layout_with_kk(g),
+     main='Bipartite network (event-person) contained in Manuscript 609 (Bibliotheque de Toulouse)')
+legend("bottomright",bty="o",legend=c('Event','Person'),fill=c('firebrick','dodgerblue'))
+dev.off()
+
+# Let's get the tie-by-event network
+event_person_ntw <- as.matrix(get.adjacency(g))
+# People to rows, events to columns
+event_person_ntw <- event_person_ntw[rownames(event_person_ntw) %in% V(g)$name[V(g)$type == 'person'],]
+event_person_ntw <- event_person_ntw[,colnames(event_person_ntw) %in% V(g)$name[V(g)$type == 'event']]
+# Matrix times its transposed
+ties_event <- event_person_ntw %*% t(event_person_ntw)
+
+# Let's put the nodes in the same order than in the inculpation network
+ties_event <- ties_event[match(V(inculp_ntw)$name,rownames(ties_event)),
+                         match(V(inculp_ntw)$name,colnames(ties_event))]
+# Let's dichotomise
+ties_event[ties_event > 0] <- 1
+
+# And convert into an igraph object
+ties_event_graph <- graph_from_adjacency_matrix(ties_event,mode='undirected',diag=FALSE)
+# Addition of node-level attributes
+V(ties_event_graph)$deponent <- V(inculp_ntw)$deponent
+V(ties_event_graph)$gender <- V(inculp_ntw)$gender
+V(ties_event_graph)$family <- V(inculp_ntw)$family
+V(ties_event_graph)$village <- V(inculp_ntw)$village
+
+# Visualisation
+jpeg(filename='Network of ties by event (village)).jpeg',width=12,height=12,units='in',res=1000)
+plot(ties_event_graph,
+     vertex.label=NA,vertex.size=2,
+     vertex.color=ifelse(V(ties_event_graph)$village == 'Mas-Saintes-Puelles','sienna3',
+                         ifelse(V(ties_event_graph)$village == 'Saint-Martin-Lalande','springgreen4',
+                                ifelse(V(ties_event_graph)$village == 'Laurac','deeppink','gold'))),
+     edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
+     layout=layout_with_kk(ties_event_graph),
+     main='Ties from shared events contained in Manuscript 609 (Bibliotheque de Toulouse)')
+legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Laurac','Somewhere else'),
+       fill=c('sienna3','springgreen4','deeppink','gold'))
+dev.off()
+
+rm(event_person);rm(event_person_ntw);rm(nodesSet1);rm(nodesSet2);rm(edgeListVec);rm(g);rm(add_nodes)
+
+########################################################################################################################
+
+# CROSS-SECTIONAL DESCRIPTION OF THE INCULPATION NETWORK
+
+# Summary table
+inculp_desc <- data.frame(stats=c('N','inculpations','components (n > 1)','largest component','isolates','density','ave degree',
+                                  'sd (out-degree)','sd (in-degree)','recip','recip (deponents only)','trans',
+                                  'trans (deponents only)','degree centr','diameter','ave path length',
+                                  'EI (gender)','gender missing','EI (family name)','family name missing',
+                                  'EI (village)','village missing'),
+                          value=NA)
+
+# Nodes and ties
+inculp_desc[1,'value'] <- vcount(inculp_ntw) 
+inculp_desc[2,'value'] <- ecount(inculp_ntw) 
+# Components and isolates
+inculp_components <- decompose(inculp_ntw)
+inculp_desc[3,'value'] <- sum(sapply(inculp_components,vcount) > 1)
+inculp_desc[4,'value'] <- max(sapply(inculp_components,vcount))
+inculp_desc[5,'value'] <- sum(sapply(inculp_components,vcount) == 1)
+# Density and degree
+inculp_desc[6,'value'] <- round(edge_density(inculp_ntw),3)
+inculp_desc[7,'value'] <- round(mean(degree(inculp_ntw,mode='out')),3)
+inculp_desc[8,'value'] <- round(sd(degree(inculp_ntw,mode='out')),3)
+inculp_desc[9,'value'] <- round(sd(degree(inculp_ntw,mode='in')),3)
+
+ggplot()+
+  geom_histogram(aes(x=degree(inculp_ntw,mode='out')),
+                 bins=(1+max(degree(inculp_ntw,mode='out'))),colour='black',fill='dodgerblue')+
+  xlab('Inculpations reported') + ylab('Count (log10 scale)') + 
+  xlim(c(-1,(1+max(degree(inculp_ntw,mode='out'))))) +
+  scale_y_log10() +
+  grid.background
+
+ggplot()+
+  geom_histogram(aes(x=degree(inculp_ntw,mode='in')),
+                 bins=(1+max(degree(inculp_ntw,mode='in'))),colour='black',fill='tomato')+
+  xlab('Inculpations received') + ylab('Count (log10 scale)') + 
+  xlim(c(-1,(1+max(degree(inculp_ntw,mode='out'))))) +
+  scale_y_log10() +
+  grid.background
+
+# Reciprocity and transitivity
+inculp_desc[10,'value'] <- round(reciprocity(inculp_ntw),3)
+inculp_desc[11,'value'] <- round(reciprocity(delete.vertices(inculp_ntw,which(V(inculp_ntw)$name %!in% deponents_ids))),3)
+inculp_desc[12,'value'] <- round(transitivity(inculp_ntw),3)
+inculp_desc[13,'value'] <- round(transitivity(delete.vertices(inculp_ntw,which(V(inculp_ntw)$name %!in% deponents_ids))),3)
+#  Degree centralisation, diameter, ave. path length
+inculp_desc[14,'value'] <- round(centr_degree(inculp_ntw,mode='total')$centralization,3)
+inculp_desc[15,'value'] <- diameter(inculp_ntw,directed = TRUE)
+inculp_desc[16,'value'] <- round(average.path.length(inculp_ntw),3)
+# EI index: remember, -1 means perfect homophily, and 1 perfect heterophily 
+inculp_desc[17,'value'] <- round(ei(inculp_ntw,'gender'),3) 
+inculp_desc[18,'value'] <- sum(is.na(V(inculp_ntw)$gender)) # gender missing
+inculp_desc[19,'value'] <- round(ei(inculp_ntw,'family'),3)
+inculp_desc[20,'value'] <- sum(is.na(V(inculp_ntw)$family)) # family name missing
+inculp_desc[21,'value'] <- round(ei(inculp_ntw,'village'),3) 
+inculp_desc[22,'value'] <- sum(is.na(V(inculp_ntw)$village)) # village missing
+
+inculp_desc # Summary table
+
+# Individuals for which we know gender, surname, and village
+vcount(inculp_ntw) - sum(is.na(V(inculp_ntw)$gender) | is.na(V(inculp_ntw)$family) | is.na(V(inculp_ntw)$village))
+
+########################################################################################################################
+
+# Remove unnecessary objects
+rm(deponents);rm(edge_list);rm(edgeList);rm(events);rm(inculp_components);rm(grid.background);rm(inculp_doc)
+rm(inculp_layout);rm(missing_days);rm(no_events);rm(places);rm(reportees);rm(targets);rm(temp_data);rm(ties_event)
+rm(dep_le_mas);rm(dep_saint_martin);rm(depositions_ids);rm(unique_names);rm(dep_event);rm(inculp_desc)
 
 # Save image
 save.image('Toulouse_data.RData')
