@@ -523,7 +523,7 @@ g <- add_vertices(g,length(add_nodes),
 g <- as.undirected(g,mode='collapse')
 
 # Visualisation
-jpeg(filename='Network event-person (bipartite)).jpeg',width=12,height=12,units='in',res=1000)
+jpeg(filename='Network event-person (bipartite).jpeg',width=12,height=12,units='in',res=1000)
 plot(g,
      vertex.label=NA,
      vertex.size=2,vertex.color=ifelse(V(g)$type == 'event','firebrick','dodgerblue'),
@@ -557,7 +557,7 @@ V(ties_event_graph)$family <- V(inculp_ntw)$family
 V(ties_event_graph)$village <- V(inculp_ntw)$village
 
 # Visualisation
-jpeg(filename='Network of ties by event (village)).jpeg',width=12,height=12,units='in',res=1000)
+jpeg(filename='Network of ties by event (village).jpeg',width=12,height=12,units='in',res=1000)
 plot(ties_event_graph,
      vertex.label=NA,vertex.size=2,
      vertex.color=ifelse(V(ties_event_graph)$village == 'Mas-Saintes-Puelles','sienna3',
