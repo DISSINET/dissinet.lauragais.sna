@@ -344,7 +344,7 @@ edgeListVec <- as.vector(t(as.matrix(data.frame(S1=edgeList$document_id,
 g <- add.edges(g,edgeListVec)
 is.bipartite(g)
 
-# add depoisitions with no inculpations
+# add depositions with no inculpations
 add_deps <- depositions_ids[depositions_ids %!in% V(g)$name]
 add_deps <- add_deps[add_deps != partial_dep[1]] # remove the partial deposition
 
@@ -354,18 +354,14 @@ g <- add_vertices(g,length(add_deps),
 rm(nodesSet1);rm(nodesSet2);rm(edgeList);rm(edgeListVec);rm(add_deps)
 
 # Visualisation of the network
-inculp_doc_layout <- layout_with_kk(g)
-
-jpeg(filename='Bipartite Network of inculpations.jpeg',width=12,height=12,units='in',res=1000)
 plot(g,
      vertex.label=NA,
      vertex.size=2,vertex.color=ifelse(V(g)$type == 'deposition','firebrick','dodgerblue'),
      vertex.shape=ifelse(V(g)$type == 'deposition','square','circle'),
      edge.arrow.size=0,edge.color=gray(0.35),edge.lty=1,
-     layout=inculp_doc_layout,
+     layout=layout_with_kk(g),
      main='Inculpations contained in Manuscript 609 (Bibliotheque de Toulouse)')
 legend("bottomright",bty="o",legend=c('Deposition','Target'),fill=c('firebrick','dodgerblue'))
-dev.off()
 
 # Extraction of number of targets per deposition
 inculp_by_deposition <- data.frame(document_id=V(g)$name[V(g)$type == 'deposition'],
