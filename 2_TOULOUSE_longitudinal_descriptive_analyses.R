@@ -1,0 +1,169 @@
+## DATA FROM MS 609 (BIBLIOTHEQUE DE TOULOUSE) COLLECTED BY JEAN-PAUL REHR
+## Longitudinal descriptive analyses
+## R script written by Jose Luis Estevez (Masaryk University)
+## Date: March 18th 2022
+########################################################################################################################
+
+# DATA LOADING
+rm(list=ls())
+load('Toulouse_data.RData')
+# Required packages
+library(ggplot2);library(igraph);library(stringr);library(ggpubr)
+library(survival);library(survminer)
+
+########################################################################################################################
+
+# TEMPORAL DESCRIPTION: INCULPATIONS VS DEPOSITIONS
+
+# Let's use only those who were targets of somebody else's deposition and get their deposition dates
+info1 <- depositions[depositions$deponent_pers_id %in% targets_ids,c('deponent_pers_id','dep_date')]
+info1$type <- 'Deposition'
+
+# Let's get the dates when they where reported by someone else
+info2 <- dep_event_people[dep_event_people$role %in% c('par','her','own','inf'),]
+info2 <- info2[info2$pers_id %in% targets_ids,]
+info2$document_id <- str_sub(info2$event_id,1,10)
+info2 <- merge(info2,depositions[,c('document_id','deponent_pers_id','dep_date')],by='document_id',all.x=TRUE)
+# Remove self-inculpations
+info2 <- info2[info2$pers_id != info2$deponent_pers_id,]
+info2 <- info2[order(info2$dep_date),] # order by time
+info2 <- info2[!duplicated(info2[,c('pers_id','deponent_pers_id','dep_date')]),]
+
+info2 <- info2[,c('pers_id','dep_date')]
+info2$type <- 'Inculpation'
+
+# Let's merge the information together
+names(info1) <- names(info2)
+sample <- rbind(info1,info2)
+sample <- sample[!is.na(sample$pers_id),] # remove one NA
+
+# Now, let's keep only first date (first inculpation and first deposition) for survival kind of analysis
+info1 <- info1[order(info1$dep_date),]
+info1 <- info1[!duplicated(info1$pers_id),]
+info2 <- info2[order(info2$dep_date),]
+info2 <- info2[!duplicated(info2$pers_id),]
+
+# New dataset, containing only the date of first inculpation and first deposition (if any)
+sample2 <- merge(info1[,1:2],info2[,1:2],by='pers_id',all.y=TRUE)
+names(sample2) <- c('pers_id','deposition','denunciation')
+# Convert to dates
+sample2$deposition <- as.Date(sample2$deposition)
+sample2$denunciation <- as.Date(sample2$denunciation)
+
+# Let's add attributes of the individuals (gender, and place of origin)
+sample2 <- merge(sample2,people[c('name','gender','placename')],by.x='pers_id',by.y='name',all.x=TRUE)
+sample2$deposed <- 1*!is.na(sample2$deposition) # Whether the person deposed or not
+sample2$deposed <- factor(sample2$deposed,levels=c(0,1),labels=c('Not deposed','Deposed'))
+
+# Let get rid of people from outside the villages where Inquisitors were operating
+sample2 <- sample2[ifelse(sample2$deposed == 1,TRUE,
+                          ifelse(sample2$placename %in% c('Mas-Saintes-Puelles','Saint-Martin-Lalande'),TRUE,FALSE)),]
+sample <- sample[sample$pers_id %in% sample2$pers_id,]
+
+# Let's find the difference in time
+sample2$diff <- NA
+for(i in 1:nrow(sample2)){
+  if(sample2$deposed[i] == 'Deposed'){
+    # If the person was deposed: (first) deposition date minus (first) denunciation date 
+    sample2$diff[i] <- sample2$deposition[i] - sample2$denunciation[i]
+  }else{
+    # Otherwise, max day the inquisitors were deposing minus (first) denunciation date
+    sample2$diff[i] <- as.Date(max(depositions$dep_date)) - sample2$denunciation[i]
+  }
+}
+
+# For visualisation purposes
+sample2$y <- 1:nrow(sample2)
+sample2$y <- factor(sample2$y,levels=order(sample2$diff,decreasing = TRUE))
+
+# Visualisation
+no.background <- theme_bw()+
+  theme(plot.background=element_blank(),panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),panel.border=element_blank())+
+  theme(axis.line=element_line(color='black'))+
+  theme(strip.text.x=element_text(colour='white',face='bold'))+
+  theme(strip.background=element_rect(fill='black'))
+
+p1 <- ggplot(data=sample)+
+  geom_point(aes(x=dep_date,y=pers_id,color=type,shape=type)) +
+  theme(axis.text.y=element_blank()) +
+  xlab('Time') + ylab('Individuals') + labs(colour='',shape='') +
+  scale_colour_manual(values = c('navyblue','red')) +
+  scale_shape_manual(values = c(17,4)) +
+  no.background +
+  theme(axis.text.y=element_blank()) +
+  theme(legend.position="top", legend.justification="center")
+
+p2 <- ggplot(data=sample2) +
+  geom_vline(xintercept = 0,colour='darkgrey',lty=2) +
+  geom_point(aes(x=diff,y=y,colour=deposed,shape=deposed),alpha=.75)  +
+  xlab('Difference in days between (first) inculpation and (first) deposition') + ylab('') + 
+  labs(colour='',shape='') +
+  scale_colour_manual(values = c('springgreen4','firebrick3')) +
+  scale_shape_manual(values = c(15,17)) +
+  no.background +
+  theme(axis.text.y=element_blank(),axis.ticks.y=element_blank()) +
+  theme(legend.position="top", legend.justification="center")
+
+jpeg(filename='Inculpation vs deposition.jpeg',width=12,height=8,units='in',res=1000)
+ggarrange(p1,p2,ncol=2)
+dev.off()
+
+rm(info1);rm(info2);rm(p1);rm(p2)
+
+########################################################################################################################
+
+# Let's find the "survival" time from first inculpation to deposition (if any)
+
+sample3 <- sample2[sample2$diff >= 0,] # Exclude those who deposed before inculpation
+fit <- survfit(Surv(sample3$diff,ifelse(sample3$deposed == 'Deposed',1,0)) ~ 1,data=sample3,
+               conf.type='log-log')
+summary(fit)
+
+fit2 <- survfit(Surv(sample3$diff,ifelse(sample3$deposed == 'Deposed',1,0)) ~ sample3$gender,data=sample3,
+                conf.type='log-log')
+summary(fit2)
+# No significant differences between genders
+(result_surv1 <- survdiff(Surv(sample3$diff) ~ sample3$gender,data=sample3))
+
+fit3 <- survfit(Surv(sample3$diff,ifelse(sample3$deposed == 'Deposed',1,0)) ~ sample3$placename,data=sample3,
+                conf.type='log-log')
+summary(fit3)
+# Significant differences between villages: Less likely to survive in Mas-Saintes-Puelles
+(result_surv2 <- survdiff(Surv(sample3$diff) ~ sample3$placename,data=sample3))
+
+# Visualisations
+p1 <- ggsurvplot(fit,data=sample3,
+           legend.title = "",
+           conf.int.fill = 'navyblue',
+           palette = 'navyblue')
+p1$plot <- p1$plot + ylab('Survival probability of being deposed') + xlab('')
+
+p2 <- ggsurvplot(fit2,data=sample3,
+           legend.title = "",
+           legend.labs = c("Female", "Male"),
+           conf.int = TRUE,
+           palette = c("firebrick3", "dodgerblue")) 
+# Add chi square text
+p2$plot <- p2$plot +
+  annotate("text", x=200,y=0.25,
+           label=paste('Chisq =',round(result_surv1$chisq,1),
+                       '\n p =',round(pchisq(result_surv1$chisq,1,lower.tail=FALSE),3),sep=' ')) +
+  ylab('') + xlab('Days after (first) inculpation')
+
+p3 <- ggsurvplot(fit3,data=sample3,
+           legend.title = "",
+           legend.labs = c("Mas-Saintes-Puelles", "Saint-Martin-Lalande"),
+           conf.int = TRUE,
+           palette = c("sienna3", "springgreen4"))
+# Add chi square text
+p3$plot <- p3$plot +
+  annotate("text", x=200,y=0.25,
+           label=paste('Chisq =',round(result_surv2$chisq,1),'\n p < 0.001',sep=' ')) +
+  ylab('')+ xlab('')
+
+jpeg(filename='Survival after deposition.jpeg',width=12,height=8,units='in',res=1000)
+ggarrange(p1$plot,p2$plot,p3$plot,nrow=1)
+dev.off()
+
+rm(fit);rm(fit2);rm(fit3);rm(p1);rm(p2);rm(p3);rm(result_surv1);rm(result_surv2)
