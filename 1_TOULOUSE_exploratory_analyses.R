@@ -641,7 +641,7 @@ vcount(inculp_ntw) - sum(is.na(V(inculp_ntw)$gender) | is.na(V(inculp_ntw)$famil
 # Remove unnecessary objects
 rm(deponents);rm(edge_list);rm(edgeList);rm(events);rm(inculp_components);rm(grid.background);rm(inculp_doc)
 rm(inculp_layout);rm(missing_days);rm(no_events);rm(places);rm(reportees);rm(targets);rm(temp_data);rm(ties_event)
-rm(dep_le_mas);rm(dep_saint_martin);rm(depositions_ids);rm(unique_names);rm(dep_event);rm(inculp_desc)
+rm(dep_le_mas);rm(dep_saint_martin);rm(depositions_ids);rm(unique_names);rm(dep_event)
 
 # Save image
 save.image('Toulouse_data.RData')
