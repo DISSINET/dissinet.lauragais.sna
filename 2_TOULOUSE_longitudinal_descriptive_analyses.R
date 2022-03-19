@@ -16,49 +16,51 @@ library(survival);library(survminer)
 # TEMPORAL DESCRIPTION: INCULPATIONS VS DEPOSITIONS
 
 # Let's use only those who were targets of somebody else's deposition and get their deposition dates
-info1 <- depositions[depositions$deponent_pers_id %in% targets_ids,c('deponent_pers_id','dep_date')]
+info1 <- depositions[depositions$fullname %in% targets_ids,c('fullname','dep_date')]
 info1$type <- 'Deposition'
 
 # Let's get the dates when they where reported by someone else
 info2 <- dep_event_people[dep_event_people$role %in% c('par','her','own','inf'),]
-info2 <- info2[info2$pers_id %in% targets_ids,]
+info2 <- info2[info2$fullname %in% targets_ids,]
 info2$document_id <- str_sub(info2$event_id,1,10)
-info2 <- merge(info2,depositions[,c('document_id','deponent_pers_id','dep_date')],by='document_id',all.x=TRUE)
-# Remove self-inculpations
-info2 <- info2[info2$pers_id != info2$deponent_pers_id,]
-info2 <- info2[order(info2$dep_date),] # order by time
-info2 <- info2[!duplicated(info2[,c('pers_id','deponent_pers_id','dep_date')]),]
+info2 <- merge(info2,depositions[,c('document_id','fullname','dep_date')],by='document_id',all.x=TRUE)
 
-info2 <- info2[,c('pers_id','dep_date')]
+
+# Remove self-inculpations
+info2 <- info2[info2$fullname.x != info2$fullname.y,] # fullname.x (inculpated), fullname.y (deponent)
+info2 <- info2[order(info2$dep_date),] # order by time
+info2 <- info2[!duplicated(info2[,c('fullname.x','fullname.y','dep_date')]),]
+
+info2 <- info2[,c('fullname.x','dep_date')]
+names(info2) <- c('fullname','dep_date')
 info2$type <- 'Inculpation'
 
 # Let's merge the information together
-names(info1) <- names(info2)
 sample <- rbind(info1,info2)
-sample <- sample[!is.na(sample$pers_id),] # remove one NA
+sample <- sample[!is.na(sample$fullname),] # remove one NA
 
 # Now, let's keep only first date (first inculpation and first deposition) for survival kind of analysis
 info1 <- info1[order(info1$dep_date),]
-info1 <- info1[!duplicated(info1$pers_id),]
+info1 <- info1[!duplicated(info1$fullname),]
 info2 <- info2[order(info2$dep_date),]
-info2 <- info2[!duplicated(info2$pers_id),]
+info2 <- info2[!duplicated(info2$fullname),]
 
 # New dataset, containing only the date of first inculpation and first deposition (if any)
-sample2 <- merge(info1[,1:2],info2[,1:2],by='pers_id',all.y=TRUE)
-names(sample2) <- c('pers_id','deposition','denunciation')
+sample2 <- merge(info1[,1:2],info2[,1:2],by='fullname',all.y=TRUE)
+names(sample2) <- c('fullname','deposition','denunciation')
 # Convert to dates
 sample2$deposition <- as.Date(sample2$deposition)
 sample2$denunciation <- as.Date(sample2$denunciation)
 
 # Let's add attributes of the individuals (gender, and place of origin)
-sample2 <- merge(sample2,people[c('name','gender','placename')],by.x='pers_id',by.y='name',all.x=TRUE)
+sample2 <- merge(sample2,people[c('fullname','gender','placename')],by='fullname',all.x=TRUE)
 sample2$deposed <- 1*!is.na(sample2$deposition) # Whether the person deposed or not
 sample2$deposed <- factor(sample2$deposed,levels=c(0,1),labels=c('Not deposed','Deposed'))
 
 # Let get rid of people from outside the villages where Inquisitors were operating
 sample2 <- sample2[ifelse(sample2$deposed == 1,TRUE,
                           ifelse(sample2$placename %in% c('Mas-Saintes-Puelles','Saint-Martin-Lalande'),TRUE,FALSE)),]
-sample <- sample[sample$pers_id %in% sample2$pers_id,]
+sample <- sample[sample$fullname %in% sample2$fullname,]
 
 # Let's find the difference in time
 sample2$diff <- NA
@@ -85,7 +87,7 @@ no.background <- theme_bw()+
   theme(strip.background=element_rect(fill='black'))
 
 p1 <- ggplot(data=sample)+
-  geom_point(aes(x=dep_date,y=pers_id,color=type,shape=type)) +
+  geom_point(aes(x=dep_date,y=fullname,color=type,shape=type)) +
   theme(axis.text.y=element_blank()) +
   xlab('Time') + ylab('Individuals') + labs(colour='',shape='') +
   scale_colour_manual(values = c('navyblue','red')) +
