@@ -17,6 +17,10 @@ names(people) <- c('name','identifier','forename','namelink','surname','genname'
 
 people[people$place_id == 'Saint-Pons-de-Thomieres_HÃ©rault',]$place_id <- 'Saint-Pons-de-Thomieres_Herault' # correction
 
+# Some corrections
+people[people$name == 'Peire_de_Rosengue_MSP-AU',]$gender <- 'male' # Peire is a male, not a female
+people[people$name == 'Pelegrina_de_Mont_Server_nee_del_Mas_MSP-AU',]$surname <- 'de Mont Server nee del Mas'
+
 # I turned both è and é into e, and à to a in the .txt
 places <- read.table("MS609_named_entities/places.txt",header=FALSE,sep="~")
 names(places) <- c('place_id','place_type','placename','settlement','lat','long','t')
