@@ -15,17 +15,6 @@ library(sf);library(rnaturalearth);library(rnaturalearthhires);library(ggspatial
 people <- read.table("MS609_named_entities/people.txt",header=FALSE,sep="~")
 names(people) <- c('name','identifier','forename','namelink','surname','genname','rolename','gender','place_id','t')
 
-people[people$place_id == 'Saint-Pons-de-Thomieres_HÃ©rault',]$place_id <- 'Saint-Pons-de-Thomieres_Herault' # correction
-
-# Some corrections
-people[people$name == 'Peire_de_Rosengue_MSP-AU',]$gender <- 'male' # Peire is a male, not a female
-people[people$surname == 'Meta nÃ©e del Mas',]$surname <- 'Meta'
-people[people$surname == 'de Mont Server nÃ©e del Mas',]$surname <- 'Mont Server'
-people[people$surname == 'MontrÃ©al',]$surname <- 'Montreal'
-people[people$surname == 'Porquer nÃ©e Garric',]$surname <- 'Porquer'
-people[people$surname == 'Quiders nÃ©e Laura',]$surname <- 'Quiders'
-people[people$surname %in% c('','B','B.','F','R','W.'),]$surname <- NA
-
 # I turned both è and é into e, and à to a in the .txt
 places <- read.table("MS609_named_entities/places.txt",header=FALSE,sep="~")
 names(places) <- c('place_id','place_type','placename','settlement','lat','long','t')
@@ -52,6 +41,23 @@ names(dep_event_people) <- c('event_id','pers_id','role','t')
 ########################################################################################################################
 
 # DATA CORRECTIONS
+
+# Some corrections
+people[people$place_id == 'Saint-Pons-de-Thomieres_HÃ©rault',]$place_id <- 'Saint-Pons-de-Thomieres_Herault' # correction
+
+people[people$name == 'Peire_de_Rosengue_MSP-AU',]$gender <- 'male' # Peire is a male, not a female
+people[people$surname == 'Meta nÃ©e del Mas',]$surname <- 'Meta'
+people[people$surname == 'de Mont Server nÃ©e del Mas',]$surname <- 'Mont Server'
+people[people$surname == 'MontrÃ©al',]$surname <- 'Montreal'
+people[people$surname == 'Porquer nÃ©e Garric',]$surname <- 'Porquer'
+people[people$surname == 'Quiders nÃ©e Laura',]$surname <- 'Quiders'
+people[people$surname %in% c('','B','B.','F','R','W.'),]$surname <- NA
+
+# Bernard de Saint-Julian is Bernard de Saint-Julia
+people[people$name == 'Bernard_de_Saint-Julian_LRC-AU',]$name <- 'Bernard_de_Saint-Julia_StJU-HG'
+people[people$name == 'Bernard_de_Saint-Julia_StJU-HG',]$surname <- 'Saint-Julia'
+people[people$name == 'Bernard_de_Saint-Julia_StJU-HG',]$place_id <- 'Saint-Julia_Haute-Garonne'
+dep_event_people[dep_event_people$pers_id == 'Bernard_de_Saint-Julian_LRC-AU',]$pers_id <- 'Bernard_de_Saint-Julia_StJU-HG'
 
 # Let's remove individuals who are not identifiable
 people$identified <- 1*!(str_detect(people$name,'unknown') | # not unknown
