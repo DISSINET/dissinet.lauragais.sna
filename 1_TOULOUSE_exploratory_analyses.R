@@ -19,7 +19,12 @@ people[people$place_id == 'Saint-Pons-de-Thomieres_HÃ©rault',]$place_id <- 'Sa
 
 # Some corrections
 people[people$name == 'Peire_de_Rosengue_MSP-AU',]$gender <- 'male' # Peire is a male, not a female
-people[people$name == 'Pelegrina_de_Mont_Server_nee_del_Mas_MSP-AU',]$surname <- 'de Mont Server nee del Mas'
+people[people$surname == 'Meta nÃ©e del Mas',]$surname <- 'Meta'
+people[people$surname == 'de Mont Server nÃ©e del Mas',]$surname <- 'Mont Server'
+people[people$surname == 'MontrÃ©al',]$surname <- 'Montreal'
+people[people$surname == 'Porquer nÃ©e Garric',]$surname <- 'Porquer'
+people[people$surname == 'Quiders nÃ©e Laura',]$surname <- 'Quiders'
+people[people$surname %in% c('','B','B.','F','R','W.'),]$surname <- NA
 
 # I turned both è and é into e, and à to a in the .txt
 places <- read.table("MS609_named_entities/places.txt",header=FALSE,sep="~")
@@ -87,7 +92,7 @@ for(i in 1:nrow(people)){
 people[people$fullname == ' Barona',]$fullname <- 'Barona' # correct the space
 
 # If no names available, use the identifiers
-people[people$fullname == ' ',]$fullname <- people[people$fullname == ' ',]$identifier
+people[people$fullname == ' NA',]$fullname <- people[people$fullname == ' NA',]$identifier
 
 # Some family names can be inferred from family ties reported
 people[people$name == 'Na_Arbona_SML-AU',]$surname <- 'Arbona'
