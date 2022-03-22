@@ -51,13 +51,25 @@ people[people$surname == 'de Mont Server nÃ©e del Mas',]$surname <- 'Mont Serv
 people[people$surname == 'MontrÃ©al',]$surname <- 'Montreal'
 people[people$surname == 'Porquer nÃ©e Garric',]$surname <- 'Porquer'
 people[people$surname == 'Quiders nÃ©e Laura',]$surname <- 'Quiders'
-people[people$surname %in% c('','B','B.','F','R','W.'),]$surname <- NA
+people[people$surname %in% c('','B','B.','F','R','W.'),]$surname <- NA # Missing surnames
 
 # Bernard de Saint-Julian is Bernard de Saint-Julia
 people[people$name == 'Bernard_de_Saint-Julian_LRC-AU',]$name <- 'Bernard_de_Saint-Julia_StJU-HG'
 people[people$name == 'Bernard_de_Saint-Julia_StJU-HG',]$surname <- 'Saint-Julia'
 people[people$name == 'Bernard_de_Saint-Julia_StJU-HG',]$place_id <- 'Saint-Julia_Haute-Garonne'
 dep_event_people[dep_event_people$pers_id == 'Bernard_de_Saint-Julian_LRC-AU',]$pers_id <- 'Bernard_de_Saint-Julia_StJU-HG'
+
+# Guilhem Canast-Bru is Guilhem Canast junior
+#people[people$name == 'Guilhem_Canast-Brus_MSP-AU',]$name <- 'Guilhem_Canast_Junior_1_MSP-AU'
+#people[people$name == 'Guilhem_Canast_Junior_1_MSP-AU',]$surname <- 'Canast'
+#people[people$name == 'Guilhem_Canast_Junior_1_MSP-AU',]$genname <- 'junior'
+#depositions[depositions$deponent_pers_id == 'Guilhem_Canast-Brus_MSP-AU',]$deponent_pers_id <- 'Guilhem_Canast_Junior_1_MSP-AU'
+#dep_event_people[dep_event_people$pers_id == 'Guilhem_Canast-Brus_MSP-AU',]$pers_id <- 'Guilhem_Canast_Junior_1_MSP-AU'
+
+# Guilhem Mas Palaisin is mentioned by his brother Bernard Mas senior but not in a heretic event. According to Bernard,
+# he was trying to save their mother and sister from heresy
+dep_event_people[dep_event_people$event_id == 'MS609-0199-9' &
+  dep_event_people$pers_id == 'Guilhem_del_Mas_Chap_MasSaintesPuelles',]$role <- 'none'
 
 # Let's remove individuals who are not identifiable
 people$identified <- 1*!(str_detect(people$name,'unknown') | # not unknown
@@ -221,8 +233,27 @@ deponents <- people[people$fullname %in% deponents_ids,]
 unique(deponents$placename) # These come from 5 different villages
 summary(factor(deponents$placename)) # Mostly from Le Mas and Saint-Martin though
 
-targets_ids <- unique(reportees[reportees$identified == 1,]$fullname) 
-length(targets_ids) # 624 people are reported
+reportees$document_id <- str_sub(reportees$event_id,1,10) # add the document ID
+# Joined deponents with their reportees
+edge_list <- merge(reportees[,c('document_id','fullname','role','event_id')],
+                   depositions[,c('document_id','dep_date','fullname','village')],
+                   by='document_id',all.x=TRUE)
+
+names(edge_list)[2] <- 'pers_id' 
+names(edge_list)[6] <- 'deponent_pers_id'
+
+# At this stage let's address the two partial depositions as only one
+edge_list[edge_list$document_id == partial_dep[2],]$document_id <- depositions[depositions$document_id == partial_dep[1],]$document_id
+
+edge_list <- edge_list[edge_list$document_id %in% depositions_ids,] # Exclude redundant documents
+edge_list <- edge_list[edge_list$deponent_pers_id != edge_list$pers_id,] # Remove self inculpations
+edge_list <- edge_list[order(edge_list$dep_date),] # order by deposition date
+edge_list <- edge_list[!duplicated(edge_list[,c('deponent_pers_id','pers_id')]),] # remove duplicates
+# If the same deponent inculpates the same person, we keep only the first inculpation
+edge_list <- edge_list[,c('deponent_pers_id','pers_id','dep_date','document_id','role','village')] # keep only key variables
+
+targets_ids <- unique(edge_list$pers_id) 
+length(targets_ids) 
 targets <- people[people$fullname %in% targets_ids,]
 unique(targets$placename) # These come from 49 different villages
 summary(factor(targets$placename)) 
@@ -262,32 +293,13 @@ rm(world);rm(villages)
 
 # INCULPATIONS PER DEPONENT
 
-reportees$document_id <- str_sub(reportees$event_id,1,10) # add the document ID
-# Joined deponents with their reportees
-edge_list <- merge(reportees[,c('document_id','fullname','role','event_id')],
-                   depositions[,c('document_id','dep_date','fullname','village')],
-                   by='document_id',all.x=TRUE)
-
-names(edge_list)[2] <- 'pers_id' 
-names(edge_list)[6] <- 'deponent_pers_id'
-
-# At this stage let's address the two partial depositions as only one
-edge_list[edge_list$document_id == partial_dep[2],]$document_id <- depositions[depositions$document_id == partial_dep[1],]$document_id
-
-edge_list <- edge_list[edge_list$document_id %in% depositions_ids,] # Exclude redundant documents
-edge_list <- edge_list[edge_list$deponent_pers_id != edge_list$pers_id,] # Remove self inculpations
-edge_list <- edge_list[order(edge_list$dep_date),] # order by deposition date
-edge_list <- edge_list[!duplicated(edge_list[,c('deponent_pers_id','pers_id')]),] # remove duplicates
-# If the same deponent inculpates the same person, we keep only the first inculpation
-edge_list <- edge_list[,c('deponent_pers_id','pers_id','dep_date','document_id','role','village')] # keep only key variables
-
 # Convert in an igraph object
 inculp_ntw <- graph_from_edgelist(as.matrix.data.frame(edge_list[,c('deponent_pers_id','pers_id')]),
                                   directed = TRUE)
 
 # edge attributes (date of the deposition)
 E(inculp_ntw)$dep_date <- as.character(edge_list$dep_date) # add date of the inculpation
-# add deponents who did not inculpate anybodfy as isolates
+# add deponents who did not inculpate anybody as isolates
 add_nodes <- deponents_ids[deponents_ids %!in% V(inculp_ntw)$name] 
 inculp_ntw <- add_vertices(inculp_ntw,length(add_nodes),attr=list(name=add_nodes))
 # Node attributes: If the person deposed or not
@@ -410,6 +422,9 @@ depositions <- merge(depositions,inculp_by_deposition,by='document_id')
 rm(inculp_by_deposition)
 
 summary(depositions$inculp)
+
+people$inculpation_sent <- degree(inculp_ntw,mode='out')
+people$inculpation_rec <- degree(inculp_ntw,mode='in')
 
 ########################################################################################################################
 
