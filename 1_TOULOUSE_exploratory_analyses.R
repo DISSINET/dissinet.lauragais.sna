@@ -31,47 +31,75 @@ dep_event[dep_event$event_id == 'MS609-0012-2',]$event_date <- 1243 # correction
 dep_event_people <- read.table("MS609_named_entities/MS609-deposition-event-people.txt",header=FALSE,sep="~")
 names(dep_event_people) <- c('event_id','pers_id','role','t')
 
-#dep_event_places <- read.table("MS609_named_entities/MS609-deposition-event-places.txt",header=FALSE,sep="~")
-#names(dep_event_places) <- c('event_id','place_id','place_type','t')
-
-# I had to remove the time stamps to load this file, that is why there are none
-#dep_event_people_acts <- read.table("MS609_named_entities/MS609-deposition-event-people-acts.txt",header=FALSE,sep="~")
-#names(dep_event_people_acts) <- c('event_id','pers_id','role','act')
-
 ########################################################################################################################
 
 # DATA CORRECTIONS
 
-# Some corrections
+# Some corrections including French accents
 people[people$place_id == 'Saint-Pons-de-Thomieres_HÃ©rault',]$place_id <- 'Saint-Pons-de-Thomieres_Herault' # correction
-
-people[people$name == 'Peire_de_Rosengue_MSP-AU',]$gender <- 'male' # Peire is a male, not a female
 people[people$surname == 'Meta nÃ©e del Mas',]$surname <- 'Meta'
 people[people$surname == 'de Mont Server nÃ©e del Mas',]$surname <- 'Mont Server'
 people[people$surname == 'MontrÃ©al',]$surname <- 'Montreal'
 people[people$surname == 'Porquer nÃ©e Garric',]$surname <- 'Porquer'
 people[people$surname == 'Quiders nÃ©e Laura',]$surname <- 'Quiders'
-people[people$surname %in% c('','B','B.','F','R','W.'),]$surname <- NA # Missing surnames
+people[people$surname == 'Amaniels',]$surname <- 'Amanielhs' #there is a missing H
 
-# Bernard de Saint-Julian is Bernard de Saint-Julia
+people[people$surname %in% c('','B','B.','F','R','W.'),]$surname <- NA # Missing surnames to NA
+people[people$name == 'Peire_de_Rosengue_MSP-AU',]$gender <- 'male' # Peire is a male, not a female
+
+# Bernard de Saint-Julian is Bernard de Saint-Julia (duplicated person)
 people[people$name == 'Bernard_de_Saint-Julian_LRC-AU',]$name <- 'Bernard_de_Saint-Julia_StJU-HG'
 people[people$name == 'Bernard_de_Saint-Julia_StJU-HG',]$surname <- 'Saint-Julia'
 people[people$name == 'Bernard_de_Saint-Julia_StJU-HG',]$place_id <- 'Saint-Julia_Haute-Garonne'
 dep_event_people[dep_event_people$pers_id == 'Bernard_de_Saint-Julian_LRC-AU',]$pers_id <- 'Bernard_de_Saint-Julia_StJU-HG'
-
-# Guilhem Canast-Bru is Guilhem Canast junior
-#people[people$name == 'Guilhem_Canast-Brus_MSP-AU',]$name <- 'Guilhem_Canast_Junior_1_MSP-AU'
-#people[people$name == 'Guilhem_Canast_Junior_1_MSP-AU',]$surname <- 'Canast'
-#people[people$name == 'Guilhem_Canast_Junior_1_MSP-AU',]$genname <- 'junior'
-#depositions[depositions$deponent_pers_id == 'Guilhem_Canast-Brus_MSP-AU',]$deponent_pers_id <- 'Guilhem_Canast_Junior_1_MSP-AU'
-#dep_event_people[dep_event_people$pers_id == 'Guilhem_Canast-Brus_MSP-AU',]$pers_id <- 'Guilhem_Canast_Junior_1_MSP-AU'
 
 # Guilhem Mas Palaisin is mentioned by his brother Bernard Mas senior but not in a heretic event. According to Bernard,
 # he was trying to save their mother and sister from heresy
 dep_event_people[dep_event_people$event_id == 'MS609-0199-9' &
   dep_event_people$pers_id == 'Guilhem_del_Mas_Chap_MasSaintesPuelles',]$role <- 'none'
 
-# Let's remove individuals who are not identifiable
+# The person Guilhem Mas junior is referring to is his brother Jordanet (or Jordan junior), not his uncle Jordan
+dep_event_people[dep_event_people$event_id == 'MS609-0203-2' & 
+                   dep_event_people$pers_id == 'Jordan_del_Mas_MSP-AU',]$pers_id <- 'Jordanet_del_Mas_MSP-AU'
+
+# P del Amanielhs is Pons Amanielhs
+#people[people$name == 'P_dels_Amanielhs_MSP-AU',]$forename <- 'Pons'
+
+########################################################################################################################
+
+# REMOVAL OF DUPLICATED SUBJECTS
+
+# Let's find out if there are duplicated subjects
+# First, let's create full-name labels
+for(i in 1:nrow(people)){
+  if(people$genname[i] == ''){
+    people$fullname[i] <- paste(people$forename[i],people$surname[i])
+  }else{
+    # in case there junior and senior, e.g.
+    people$fullname[i] <- paste(people$forename[i],people$surname[i],people$genname[i])
+  }
+}
+
+# Some corrections
+people[people$fullname == ' Auda',]$fullname <- 'na Auda' 
+people[people$fullname == ' Barona',]$fullname <- 'na Barona' 
+people[people$fullname == ' Carbonel',]$fullname <- 'Carbonel' 
+people[people$fullname == ' Mateus Gardog',]$fullname <- 'na Mateus Gardog' 
+people[people$fullname == ' NA senior',]$fullname <- 'Pictavini senior' 
+people[people$fullname == ' Pages',]$fullname <- 'Pages' 
+people[people$fullname == ' Sabater',]$fullname <- 'father of Raimund Sabater'
+people[people$fullname == 'A. NA',]$fullname <- 'Magister Chancellor'
+
+# If no names available, use the identifiers like mother of x or wife of y
+people[people$fullname == ' NA',]$fullname <- people[people$fullname == ' NA',]$identifier
+
+# Use the full names in the other data files to facilitate connection later
+depositions <- merge(depositions,
+                     people[,c('name','fullname')],by.x='deponent_pers_id',by.y='name',all.x=TRUE)
+dep_event_people <- merge(dep_event_people, 
+                          people[,c('name','fullname')],by.x='pers_id',by.y='name',all.x=TRUE)
+
+# Now, let's remove from the sample individuals who are not identifiable
 people$identified <- 1*!(str_detect(people$name,'unknown') | # not unknown
                            str_detect(people$name,'not_named') | # not-named
                            str_detect(people$name,'unnamed') | # unnamed
@@ -96,51 +124,9 @@ reportees <- reportees[reportees$identified == 1,]
 
 # Now, let's subset only those subjects that are either deponents, or reported as participants, heretics, etc.
 people <- people[people$name %in% c(unique(reportees$pers_id),depositions$deponent_pers_id),] # N = 1126 
+nrow(people)
 
-# Let's find out if there are duplicated subjects
-# First, let's create full-name labels
-for(i in 1:nrow(people)){
-  if(people$genname[i] == ''){
-    people$fullname[i] <- paste(people$forename[i],people$surname[i])
-  }else{
-    # in case there junior and senior, e.g.
-    people$fullname[i] <- paste(people$forename[i],people$surname[i],people$genname[i])
-  }
-}
-people[people$fullname == ' Barona',]$fullname <- 'Barona' # correct the space
-
-# If no names available, use the identifiers
-people[people$fullname == ' NA',]$fullname <- people[people$fullname == ' NA',]$identifier
-
-# Some family names can be inferred from family ties reported
-people[people$name == 'Na_Arbona_SML-AU',]$surname <- 'Arbona'
-people[people$name == 'Raimunda_mother_of_Flor_del_Mas_BPC-AU',]$surname <- 'Mas'
-people[people$name == 'P_del_Mas_H',]$surname <- 'Mas'
-people[people$name == 'wife_of_Guilhem_Arnald_SML-AU',]$surname <- 'Arnald'
-people[people$name == 'Na_Camona_MSP-AU',]$surname <- 'Camona'
-people[people$name == 'Dominic_de_Catalonia',]$surname <- 'Catalonia'
-people[people$name == 'mother_of_Dominic_de_Catalonia',]$surname <- 'Catalonia'
-people[people$name == 'Na_Comdors_Heuna_MSP-AU',]$surname <- 'Comdors'
-people[people$name == 'Alamanda_mother_Amada_Fendelha_FDL-AU',]$surname <- 'Fendelha'
-people[people$name == 'wife_of_Peire_Gari_SPdT-HE',]$surname <- 'Gari'
-people[people$name == 'Garnier_Senior_MSP-AU',]$surname <- 'Garnier'
-people[people$name == 'daughter_of_Melia_Johan_SML-AU',]$surname <- 'Johan'
-people[people$name == 'Na_Laureta_MPX-AR',]$surname <- 'Laureta'
-people[people$name == 'Guilhelma_sister_Arnald_Maiestre_MSP-AU',]$surname <- 'Maiestre'
-#people[people$name == 'Raimunda_concubine_Maiestre_MSP-AU',]$surname <- 'Maiestre'
-#people[people$name == 'Nauda_concubine_of_Raimund_dels_Alamans_SML-AU',]$surname <- 'Alamans'
-people[people$name == 'mother_of_Saramunda_del_Mas_CMS-AU',]$surname <- 'Mas'
-people[people$name == 'mother_of_Cerdana_de_Lalanda_SML-AU',]$surname <- 'Lalanda'
-
-unique_names <- unique(people$fullname) # Probably 1,082 individuals, NOT 1,126
-
-# Use the full names in the other data files to facilitate connection later
-depositions <- merge(depositions,
-                     people[,c('name','fullname')],by.x='deponent_pers_id',by.y='name',all.x=TRUE)
-reportees <- merge(reportees,
-                   people[,c('name','fullname')],by.x='pers_id',by.y='name',all.x=TRUE)
-dep_event_people <- merge(dep_event_people, 
-                          people[,c('name','fullname')],by.x='pers_id',by.y='name',all.x=TRUE)
+unique_names <- unique(people$fullname) # Probably 1,081 individuals, NOT 1,126
 
 # Let's remove the duplicates 
 people <- merge(people,places[,c('place_id','placename')],by='place_id',all.x=TRUE) # first, let's get villages
@@ -318,33 +304,15 @@ V(inculp_ntw)$village <- people$placename
 set.seed(0708)
 inculp_layout <- layout_with_kk(inculp_ntw)
 
-# By deponent vs. non-deponent (target)
-jpeg(filename='Network of inculpations (deponents).jpeg',width=12,height=12,units='in',res=1000)
-plot(inculp_ntw,
-     vertex.label=NA,vertex.size=2,vertex.color=ifelse(V(inculp_ntw)$deponent == 'deponent','firebrick','dodgerblue'),
-     edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
-     layout=inculp_layout,
-     main='Inculpations contained in Manuscript 609 (Bibliotheque de Toulouse)')
-legend("bottomright",bty="o",legend=c('Deponent','Target'),fill=c('firebrick','dodgerblue'))
-dev.off()
-
-# By gender
-jpeg(filename='Network of inculpations (gender).jpeg',width=12,height=12,units='in',res=1000)
-plot(inculp_ntw,
-     vertex.label=NA,vertex.size=2,vertex.color=ifelse(V(inculp_ntw)$gender == 'male','royalblue','magenta'),
-     edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
-     layout=inculp_layout,
-     main='Inculpations contained in Manuscript 609 (Bibliotheque de Toulouse)')
-legend("bottomright",bty="o",legend=c('Male','Female'),fill=c('royalblue','magenta'))
-dev.off()
-
-# By village
-jpeg(filename='Network of inculpations (village).jpeg',width=12,height=12,units='in',res=1000)
+# Coloured by village
+jpeg(filename='Network of inculpations.jpeg',width=12,height=12,units='in',res=1000)
 plot(inculp_ntw,
      vertex.label=NA,vertex.size=2,
-     vertex.color=ifelse(V(inculp_ntw)$village == 'Mas-Saintes-Puelles','sienna3',
-                         ifelse(V(inculp_ntw)$village == 'Saint-Martin-Lalande','springgreen4',
-                                ifelse(V(inculp_ntw)$village == 'Laurac','deeppink','gold'))),
+     vertex.color=ifelse(degree(inculp_ntw,mode='total') == 0,grey(0.5,0.2),
+                         ifelse(V(inculp_ntw)$village == 'Mas-Saintes-Puelles','sienna3',
+                                ifelse(V(inculp_ntw)$village == 'Saint-Martin-Lalande','springgreen4',
+                                       ifelse(V(inculp_ntw)$village == 'Laurac','deeppink','gold')))),
+     vertex.frame.color=ifelse(degree(inculp_ntw,mode='total') == 0,grey(0,0.2),'black'),
      edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
      layout=inculp_layout,
      main='Inculpations contained in Manuscript 609 (Bibliotheque de Toulouse)')
@@ -359,9 +327,12 @@ inculp_by_deponent <- data.frame(fullname = V(inculp_ntw)$name,
 inculp_by_deponent <- inculp_by_deponent[inculp_by_deponent$fullname %in% deponents_ids,] # only deponents
 deponents <- merge(deponents,inculp_by_deponent,by='fullname')
 
-rm(inculp_by_deponent);rm(add_nodes)
+# Merge with people's data
+people <- merge(people,inculp_by_deponent,by='fullname',all.x=TRUE) 
+people$inculp_rec[is.na(people$inculp_rec)] <- 0 
 
-summary(deponents$inculp_sent) # Number of inculpations per deponent
+summary(people$inculp_sent);summary(people$inculp_rec)
+rm(inculp_by_deponent);rm(add_nodes)
 
 ########################################################################################################################
 
@@ -405,16 +376,6 @@ g <- add_vertices(g,length(add_deps),
 
 rm(nodesSet1);rm(nodesSet2);rm(edgeList);rm(edgeListVec);rm(add_deps)
 
-# Visualisation of the network
-plot(g,
-     vertex.label=NA,
-     vertex.size=2,vertex.color=ifelse(V(g)$type == 'deposition','firebrick','dodgerblue'),
-     vertex.shape=ifelse(V(g)$type == 'deposition','square','circle'),
-     edge.arrow.size=0,edge.color=gray(0.35),edge.lty=1,
-     layout=layout_with_kk(g),
-     main='Inculpations contained in Manuscript 609 (Bibliotheque de Toulouse)')
-legend("bottomright",bty="o",legend=c('Deposition','Target'),fill=c('firebrick','dodgerblue'))
-
 # Extraction of number of targets per deposition
 inculp_by_deposition <- data.frame(document_id=V(g)$name[V(g)$type == 'deposition'],
                                    inculp = as.vector(degree(g,mode='out'))[1:685])
@@ -422,9 +383,6 @@ depositions <- merge(depositions,inculp_by_deposition,by='document_id')
 rm(inculp_by_deposition)
 
 summary(depositions$inculp)
-
-people$inculpation_sent <- degree(inculp_ntw,mode='out')
-people$inculpation_rec <- degree(inculp_ntw,mode='in')
 
 ########################################################################################################################
 
@@ -562,18 +520,6 @@ g <- add_vertices(g,length(add_nodes),
 # Make undirected
 g <- as.undirected(g,mode='collapse')
 
-# Visualisation
-jpeg(filename='Network event-person (bipartite).jpeg',width=12,height=12,units='in',res=1000)
-plot(g,
-     vertex.label=NA,
-     vertex.size=2,vertex.color=ifelse(V(g)$type == 'event','firebrick','dodgerblue'),
-     vertex.shape=ifelse(V(g)$type == 'event','square','circle'),
-     edge.arrow.size=0,edge.color=gray(0.35),edge.lty=1,
-     layout=layout_with_kk(g),
-     main='Bipartite network (event-person) contained in Manuscript 609 (Bibliotheque de Toulouse)')
-legend("bottomright",bty="o",legend=c('Event','Person'),fill=c('firebrick','dodgerblue'))
-dev.off()
-
 # Let's get the tie-by-event network
 event_person_ntw <- as.matrix(get.adjacency(g))
 # People to rows, events to columns
@@ -596,20 +542,6 @@ V(ties_event_graph)$gender <- V(inculp_ntw)$gender
 V(ties_event_graph)$family <- V(inculp_ntw)$family
 V(ties_event_graph)$village <- V(inculp_ntw)$village
 
-# Visualisation
-jpeg(filename='Network of ties by event (village).jpeg',width=12,height=12,units='in',res=1000)
-plot(ties_event_graph,
-     vertex.label=NA,vertex.size=2,
-     vertex.color=ifelse(V(ties_event_graph)$village == 'Mas-Saintes-Puelles','sienna3',
-                         ifelse(V(ties_event_graph)$village == 'Saint-Martin-Lalande','springgreen4',
-                                ifelse(V(ties_event_graph)$village == 'Laurac','deeppink','gold'))),
-     edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
-     layout=layout_with_kk(ties_event_graph),
-     main='Ties from shared events contained in Manuscript 609 (Bibliotheque de Toulouse)')
-legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Laurac','Somewhere else'),
-       fill=c('sienna3','springgreen4','deeppink','gold'))
-dev.off()
-
 rm(event_person);rm(event_person_ntw);rm(nodesSet1);rm(nodesSet2);rm(edgeListVec);rm(g);rm(add_nodes)
 
 ########################################################################################################################
@@ -620,8 +552,7 @@ rm(event_person);rm(event_person_ntw);rm(nodesSet1);rm(nodesSet2);rm(edgeListVec
 inculp_desc <- data.frame(stats=c('N','inculpations','components (n > 1)','largest component','isolates','density','ave degree',
                                   'sd (out-degree)','sd (in-degree)','recip','recip (deponents only)','trans',
                                   'trans (deponents only)','degree centr','diameter','ave path length',
-                                  'EI (gender)','gender missing','EI (family name)','family name missing',
-                                  'EI (village)','village missing'),
+                                  'EI (gender)','gender missing','EI (village)','village missing'),
                           value=NA)
 
 # Nodes and ties
@@ -666,15 +597,13 @@ inculp_desc[16,'value'] <- round(average.path.length(inculp_ntw),3)
 # EI index: remember, -1 means perfect homophily, and 1 perfect heterophily 
 inculp_desc[17,'value'] <- round(ei(inculp_ntw,'gender'),3) 
 inculp_desc[18,'value'] <- sum(is.na(V(inculp_ntw)$gender)) # gender missing
-inculp_desc[19,'value'] <- round(ei(inculp_ntw,'family'),3)
-inculp_desc[20,'value'] <- sum(is.na(V(inculp_ntw)$family)) # family name missing
-inculp_desc[21,'value'] <- round(ei(inculp_ntw,'village'),3) 
-inculp_desc[22,'value'] <- sum(is.na(V(inculp_ntw)$village)) # village missing
+inculp_desc[19,'value'] <- round(ei(inculp_ntw,'village'),3) 
+inculp_desc[20,'value'] <- sum(is.na(V(inculp_ntw)$village)) # village missing
 
 inculp_desc # Summary table
 
-# Individuals for which we know gender, surname, and village
-vcount(inculp_ntw) - sum(is.na(V(inculp_ntw)$gender) | is.na(V(inculp_ntw)$family) | is.na(V(inculp_ntw)$village))
+# Individuals for which we know gender and village
+vcount(inculp_ntw) - sum(is.na(V(inculp_ntw)$gender) | is.na(V(inculp_ntw)$village))
 
 ########################################################################################################################
 
