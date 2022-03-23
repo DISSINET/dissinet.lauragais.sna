@@ -53,8 +53,8 @@ people[people$name == 'Bernard_de_Saint-Julia_StJU-HG',]$surname <- 'Saint-Julia
 people[people$name == 'Bernard_de_Saint-Julia_StJU-HG',]$place_id <- 'Saint-Julia_Haute-Garonne'
 dep_event_people[dep_event_people$pers_id == 'Bernard_de_Saint-Julian_LRC-AU',]$pers_id <- 'Bernard_de_Saint-Julia_StJU-HG'
 
-# Guilhem Mas Palaisin is mentioned by his brother Bernard Mas senior but not in a heretic event. According to Bernard,
-# he was trying to save their mother and sister from heresy
+# Guilhem Mas Palaisin is mentioned by his brother Bernard Mas senior but not in a heretic event. 
+# According to Bernard, he was trying to save their mother and sister from heresy
 dep_event_people[dep_event_people$event_id == 'MS609-0199-9' &
   dep_event_people$pers_id == 'Guilhem_del_Mas_Chap_MasSaintesPuelles',]$role <- 'none'
 
@@ -62,42 +62,13 @@ dep_event_people[dep_event_people$event_id == 'MS609-0199-9' &
 dep_event_people[dep_event_people$event_id == 'MS609-0203-2' & 
                    dep_event_people$pers_id == 'Jordan_del_Mas_MSP-AU',]$pers_id <- 'Jordanet_del_Mas_MSP-AU'
 
-# P del Amanielhs is Pons Amanielhs
-#people[people$name == 'P_dels_Amanielhs_MSP-AU',]$forename <- 'Pons'
-
 ########################################################################################################################
 
-# REMOVAL OF DUPLICATED SUBJECTS
-
-# Let's find out if there are duplicated subjects
-# First, let's create full-name labels
-for(i in 1:nrow(people)){
-  if(people$genname[i] == ''){
-    people$fullname[i] <- paste(people$forename[i],people$surname[i])
-  }else{
-    # in case there junior and senior, e.g.
-    people$fullname[i] <- paste(people$forename[i],people$surname[i],people$genname[i])
-  }
-}
-
-# Some corrections
-people[people$fullname == ' Auda',]$fullname <- 'na Auda' 
-people[people$fullname == ' Barona',]$fullname <- 'na Barona' 
-people[people$fullname == ' Carbonel',]$fullname <- 'Carbonel' 
-people[people$fullname == ' Mateus Gardog',]$fullname <- 'na Mateus Gardog' 
-people[people$fullname == ' NA senior',]$fullname <- 'Pictavini senior' 
-people[people$fullname == ' Pages',]$fullname <- 'Pages' 
-people[people$fullname == ' Sabater',]$fullname <- 'father of Raimund Sabater'
-people[people$fullname == 'A. NA',]$fullname <- 'Magister Chancellor'
-
-# If no names available, use the identifiers like mother of x or wife of y
-people[people$fullname == ' NA',]$fullname <- people[people$fullname == ' NA',]$identifier
-
-# Use the full names in the other data files to facilitate connection later
-depositions <- merge(depositions,
-                     people[,c('name','fullname')],by.x='deponent_pers_id',by.y='name',all.x=TRUE)
-dep_event_people <- merge(dep_event_people, 
-                          people[,c('name','fullname')],by.x='pers_id',by.y='name',all.x=TRUE)
+# This is to facilitate connection among datasets
+people <- merge(people,places[,c('place_id','placename')],by='place_id',all.x=TRUE) # first, let's get villages
+people$fullname <- people$name
+depositions$fullname <- depositions$deponent_pers_id
+dep_event_people$fullname <- dep_event_people$pers_id
 
 # Now, let's remove from the sample individuals who are not identifiable
 people$identified <- 1*!(str_detect(people$name,'unknown') | # not unknown
@@ -121,38 +92,6 @@ reportees$identified <- 1*!(str_detect(reportees$pers_id,'unknown') | # not unkn
                               str_detect(reportees$pers_id,'not_recalled') |
                               str_detect(reportees$pers_id,'in_public')) # in public
 reportees <- reportees[reportees$identified == 1,]
-
-# Now, let's subset only those subjects that are either deponents, or reported as participants, heretics, etc.
-people <- people[people$name %in% c(unique(reportees$pers_id),depositions$deponent_pers_id),] # N = 1126 
-nrow(people)
-
-unique_names <- unique(people$fullname) # Probably 1,081 individuals, NOT 1,126
-
-# Let's remove the duplicates 
-people <- merge(people,places[,c('place_id','placename')],by='place_id',all.x=TRUE) # first, let's get villages
-
-people <- people[!duplicated(people[,c('fullname','placename')]),] # if full name and place_id are the same, we only keep one
-
-# If we have the same name but two different places...
-'%!in%' <- function(x,y)!('%in%'(x,y))
-no_dup <- people[people$fullname %!in% people[duplicated(people[,'fullname']),]$fullname,]
-yes_dup <- people[people$fullname %in% people[duplicated(people[,'fullname']),]$fullname,]
-# In most cases, are individuals reported living both in Mas-Saintes-Puelles and Saint-Martin-Lalande
-yes_dup[yes_dup$placename %!in% c('Mas-Saintes-Puelles','Saint-Martin-Lalande'),]
-# This are just cases where one row is missing id_place 
-yes_dup1 <- yes_dup[yes_dup$fullname %in% c('Bernarda','Bertrand Marti','Guilhem Vidal','P Bernard')
-                    & yes_dup$placename %in% c('Mas-Saintes-Puelles','Saint-Martin-Lalande'),]
-# This are both from the two different villages
-yes_dup2 <- yes_dup[yes_dup$fullname %!in% c('Bernarda','Bertrand Marti','Guilhem Vidal','P Bernard'),]
-# We pick one at random
-set.seed(123)
-yes_dup2 <- yes_dup2[sample(row.names(yes_dup2),replace=FALSE),]
-yes_dup2 <- yes_dup2[!duplicated(yes_dup2[,c('fullname')]),]
-
-people <- rbind(no_dup,yes_dup1,yes_dup2)
-
-# Remove unnecessary objects
-rm(yes_dup);rm(yes_dup1);rm(yes_dup2);rm(no_dup)
 
 ########################################################################################################################
 
@@ -249,7 +188,7 @@ summary(factor(targets$placename))
 # VILLAGES
 
 # Targets distribution by village
-villages <- as.data.frame(summary(factor(targets$placename))[c(-49)]) # remove when the place is empty
+villages <- as.data.frame(summary(factor(targets$placename))[c(-50)]) # remove when the place is empty
 names(villages) <- 'targets'
 villages$targets <- (villages$targets)
 villages <- cbind(places[places$placename %in% targets$placename,],villages) # Obtaining the coordinates in a map
@@ -286,6 +225,7 @@ inculp_ntw <- graph_from_edgelist(as.matrix.data.frame(edge_list[,c('deponent_pe
 # edge attributes (date of the deposition)
 E(inculp_ntw)$dep_date <- as.character(edge_list$dep_date) # add date of the inculpation
 # add deponents who did not inculpate anybody as isolates
+'%!in%' <- function(x,y)!('%in%'(x,y))
 add_nodes <- deponents_ids[deponents_ids %!in% V(inculp_ntw)$name] 
 inculp_ntw <- add_vertices(inculp_ntw,length(add_nodes),attr=list(name=add_nodes))
 # Node attributes: If the person deposed or not
@@ -490,62 +430,6 @@ rm(dates_to_plot);rm(key_dates);rm(i)
 
 ########################################################################################################################
 
-# CREATION OF A NETWORK: PRESENCE IN THE SAME EVENT
-
-event_person <- reportees
-
-# Let's create a bipartite network now
-nodesSet1 <- unique(event_person$event_id)
-nodesSet2 <- unique(event_person$fullname)
-edgeList <- event_person
-
-g <- graph.empty()
-g <- add.vertices(g,nv=length(nodesSet1),attr=list(name=nodesSet1,
-                                                   type=rep('event',length(nodesSet1))))
-g <- add.vertices(g,nv=length(nodesSet2),attr=list(name=nodesSet2,
-                                                   type=rep('person',length(nodesSet2))))
-# we need to turn edgeList into a vector (and using names instead of indexes)
-edgeListVec <- as.vector(t(as.matrix(data.frame(S1=edgeList$event_id,
-                                                S2=edgeList$fullname))))
-g <- add.edges(g,edgeListVec)
-is.bipartite(g)
-# Any individual that is not in the inculpation network?
-nodesSet2[!(V(g)$name[V(g)$type == 'person'] %in% unique_names)]
-
-# add people
-add_nodes <- unique_names[unique_names %!in% nodesSet2]
-g <- add_vertices(g,length(add_nodes),
-                  attr=list(name=add_nodes,type='person'))
-
-# Make undirected
-g <- as.undirected(g,mode='collapse')
-
-# Let's get the tie-by-event network
-event_person_ntw <- as.matrix(get.adjacency(g))
-# People to rows, events to columns
-event_person_ntw <- event_person_ntw[rownames(event_person_ntw) %in% V(g)$name[V(g)$type == 'person'],]
-event_person_ntw <- event_person_ntw[,colnames(event_person_ntw) %in% V(g)$name[V(g)$type == 'event']]
-# Matrix times its transposed
-ties_event <- event_person_ntw %*% t(event_person_ntw)
-
-# Let's put the nodes in the same order than in the inculpation network
-ties_event <- ties_event[match(V(inculp_ntw)$name,rownames(ties_event)),
-                         match(V(inculp_ntw)$name,colnames(ties_event))]
-# Let's dichotomise
-ties_event[ties_event > 0] <- 1
-
-# And convert into an igraph object
-ties_event_graph <- graph_from_adjacency_matrix(ties_event,mode='undirected',diag=FALSE)
-# Addition of node-level attributes
-V(ties_event_graph)$deponent <- V(inculp_ntw)$deponent
-V(ties_event_graph)$gender <- V(inculp_ntw)$gender
-V(ties_event_graph)$family <- V(inculp_ntw)$family
-V(ties_event_graph)$village <- V(inculp_ntw)$village
-
-rm(event_person);rm(event_person_ntw);rm(nodesSet1);rm(nodesSet2);rm(edgeListVec);rm(g);rm(add_nodes)
-
-########################################################################################################################
-
 # CROSS-SECTIONAL DESCRIPTION OF THE INCULPATION NETWORK
 
 # Summary table
@@ -608,9 +492,9 @@ vcount(inculp_ntw) - sum(is.na(V(inculp_ntw)$gender) | is.na(V(inculp_ntw)$villa
 ########################################################################################################################
 
 # Remove unnecessary objects
-rm(deponents);rm(edge_list);rm(edgeList);rm(events);rm(inculp_components);rm(grid.background);rm(inculp_doc)
-rm(inculp_layout);rm(missing_days);rm(no_events);rm(places);rm(reportees);rm(targets);rm(temp_data);rm(ties_event)
-rm(dep_le_mas);rm(dep_saint_martin);rm(depositions_ids);rm(unique_names);rm(dep_event)
+rm(deponents);rm(edge_list);rm(events);rm(inculp_components);rm(grid.background);rm(inculp_doc)
+rm(inculp_layout);rm(missing_days);rm(no_events);rm(places);rm(reportees);rm(targets);rm(temp_data)
+rm(dep_le_mas);rm(dep_saint_martin);rm(depositions_ids);rm(dep_event)
 
 # Save image
 save.image('Toulouse_data.RData')

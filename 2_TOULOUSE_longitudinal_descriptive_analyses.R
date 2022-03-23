@@ -107,9 +107,9 @@ p2 <- ggplot(data=sample2) +
   theme(axis.text.y=element_blank(),axis.ticks.y=element_blank()) +
   theme(legend.position="top", legend.justification="center")
 
-jpeg(filename='Inculpation vs deposition.jpeg',width=12,height=8,units='in',res=1000)
-ggarrange(p1,p2,ncol=2)
-dev.off()
+#jpeg(filename='Inculpation vs deposition.jpeg',width=12,height=8,units='in',res=500)
+#ggarrange(p1,p2,ncol=2)
+#dev.off()
 
 rm(info1);rm(info2);rm(p1);rm(p2)
 
@@ -118,6 +118,7 @@ rm(info1);rm(info2);rm(p1);rm(p2)
 # Let's find the "survival" time from first inculpation to deposition (if any)
 
 sample3 <- sample2[sample2$diff >= 0,] # Exclude those who deposed before inculpation
+
 fit <- survfit(Surv(sample3$diff,ifelse(sample3$deposed == 'Deposed',1,0)) ~ 1,data=sample3,
                conf.type='log-log')
 summary(fit)
@@ -139,7 +140,8 @@ p1 <- ggsurvplot(fit,data=sample3,
            legend.title = "",
            conf.int.fill = 'navyblue',
            palette = 'navyblue')
-p1$plot <- p1$plot + ylab('Survival probability of being deposed') + xlab('')
+p1$plot <- p1$plot + 
+  ylab('Survival probability of being deposed') + xlab('')
 
 p2 <- ggsurvplot(fit2,data=sample3,
            legend.title = "",
@@ -161,7 +163,8 @@ p3 <- ggsurvplot(fit3,data=sample3,
 # Add chi square text
 p3$plot <- p3$plot +
   annotate("text", x=200,y=0.25,
-           label=paste('Chisq =',round(result_surv2$chisq,1),'\n p < 0.001',sep=' ')) +
+           label=paste('Chisq =',round(result_surv2$chisq,1),
+                       '\n p =',round(pchisq(result_surv2$chisq,1,lower.tail=FALSE),3),sep=' ')) +
   ylab('')+ xlab('')
 
 jpeg(filename='Survival after deposition.jpeg',width=12,height=8,units='in',res=1000)
