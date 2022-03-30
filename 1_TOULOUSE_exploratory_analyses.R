@@ -360,7 +360,7 @@ set.seed(0708)
 inculp_layout <- layout_with_kk(inculp_ntw)
 
 # Coloured by village
-jpeg(filename='Network of inculpations.jpeg',width=12,height=12,units='in',res=1000)
+jpeg(filename='Network of incriminations.jpeg',width=12,height=12,units='in',res=1000)
 plot(inculp_ntw,
      vertex.label=NA,vertex.size=2,
      vertex.color=ifelse(degree(inculp_ntw,mode='total') == 0,grey(0.5,0.2),
@@ -370,7 +370,7 @@ plot(inculp_ntw,
      vertex.frame.color=ifelse(degree(inculp_ntw,mode='total') == 0,grey(0,0.2),'black'),
      edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
      layout=inculp_layout,
-     main='Inculpations contained in Manuscript 609 (Bibliotheque de Toulouse)')
+     main='Incriminations contained in Manuscript 609 (Bibliotheque de Toulouse)')
 legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Laurac','Somewhere else','Unknown'),
        pch=21,pt.bg=c('sienna3','springgreen4','deeppink','goldenrod3','white'),
        pt.cex=1.25, cex=1.25, ncol=1)
@@ -500,7 +500,7 @@ p2 <- ggplot() +
                                         '1245-11-01','1245-12-01','1246-01-01','1246-02-01','1246-03-01','1246-04-01',
                                         '1246-05-01','1246-06-01','1246-07-01','1246-08-01'))) 
 
-jpeg(filename='Inculpations over time.jpeg',width=12,height=7,units='in',res=1000)
+jpeg(filename='Incriminations over time.jpeg',width=12,height=7,units='in',res=1000)
 ggarrange(p1,p2,nrow=1,labels=c('',''))
 dev.off()
 
@@ -536,7 +536,7 @@ for(i in match(as.character(dates_to_plot),as.character(names(snapshot_ntw)))){
        edge.width=.5,edge.arrow.size=.15,edge.lty=1,
        edge.color= ifelse(E(snapshot_ntw[[i]])$dep_date != key_dates[i],gray(0.15),'red'),
        layout=inculp_layout,
-       main=paste('Inculpations by',names(snapshot_ntw)[[i]]),sep=' ')
+       main=paste('Incriminations by',names(snapshot_ntw)[[i]]),sep=' ')
 }
 legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Laurac','Somewhere else','Unknown'),
        pch=21,pt.bg=c('sienna3','springgreen4','deeppink','goldenrod3','white'))
@@ -549,7 +549,7 @@ rm(dates_to_plot);rm(key_dates);rm(i)
 # CROSS-SECTIONAL DESCRIPTION OF THE INCULPATION NETWORK
 
 # Summary table
-inculp_desc <- data.frame(stats=c('N','inculpations','components (n > 1)','largest component','isolates','density','ave degree',
+inculp_desc <- data.frame(stats=c('N','incriminations','components (n > 1)','largest component','isolates','density','ave degree',
                                   'sd (out-degree)','sd (in-degree)','recip','recip (deponents only)','trans',
                                   'trans (deponents only)','degree centr','diameter','ave path length',
                                   'EI (gender)','gender missing','EI (village)','village missing'),
@@ -572,7 +572,7 @@ inculp_desc[9,'value'] <- round(sd(degree(inculp_ntw,mode='in')),3)
 ggplot()+
   geom_histogram(aes(x=degree(inculp_ntw,mode='out')),
                  bins=(1+max(degree(inculp_ntw,mode='out'))),colour='black',fill='dodgerblue')+
-  xlab('Inculpations reported') + ylab('Count (log10 scale)') + 
+  xlab('Incriminations reported') + ylab('Count (log10 scale)') + 
   xlim(c(-1,(1+max(degree(inculp_ntw,mode='out'))))) +
   scale_y_log10() +
   grid.background
@@ -580,7 +580,7 @@ ggplot()+
 ggplot()+
   geom_histogram(aes(x=degree(inculp_ntw,mode='in')),
                  bins=(1+max(degree(inculp_ntw,mode='in'))),colour='black',fill='tomato')+
-  xlab('Inculpations received') + ylab('Count (log10 scale)') + 
+  xlab('Incriminations received') + ylab('Count (log10 scale)') + 
   xlim(c(-1,(1+max(degree(inculp_ntw,mode='out'))))) +
   scale_y_log10() +
   grid.background

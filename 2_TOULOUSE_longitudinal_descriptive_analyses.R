@@ -7,6 +7,7 @@
 # DATA LOADING
 rm(list=ls())
 load('Toulouse_data.RData')
+deceased <- readxl::read_excel('MS609_extrainfo.xlsx',sheet='deceased')
 # Required packages
 library(ggplot2);library(igraph);library(stringr);library(ggpubr)
 library(survival);library(survminer)
@@ -24,7 +25,6 @@ info2 <- dep_event_people[dep_event_people$role %in% c('par','her','own','inf'),
 info2 <- info2[info2$fullname %in% targets_ids,]
 info2$document_id <- str_sub(info2$event_id,1,10)
 info2 <- merge(info2,depositions[,c('document_id','fullname','dep_date')],by='document_id',all.x=TRUE)
-
 
 # Remove self-inculpations
 info2 <- info2[info2$fullname.x != info2$fullname.y,] # fullname.x (inculpated), fullname.y (deponent)
@@ -107,32 +107,37 @@ p2 <- ggplot(data=sample2) +
   theme(axis.text.y=element_blank(),axis.ticks.y=element_blank()) +
   theme(legend.position="top", legend.justification="center")
 
-#jpeg(filename='Inculpation vs deposition.jpeg',width=12,height=8,units='in',res=500)
-#ggarrange(p1,p2,ncol=2)
-#dev.off()
+ggarrange(p1,p2,ncol=2)
 
 rm(info1);rm(info2);rm(p1);rm(p2)
 
 ########################################################################################################################
 
-# Let's find the "survival" time from first inculpation to deposition (if any)
+# SURVIVING INCRIMINATION?
 
-sample3 <- sample2[sample2$diff >= 0,] # Exclude those who deposed before inculpation
+# Let's see now how long took people to be deposed after being inculpated
+# First, let's removed those deceased by the time the Inquisition took place
+deceased <- unique(deceased$person)
+deceased <- deceased[deceased %!in% deponents_ids] # if they deposed, they were alive still
+sample <- sample[sample$fullname %!in% deceased,]
+sample2 <- sample2[sample2$fullname %!in% deceased,]
 
+# And let's exclude those few who deposed before being incriminated
+sample3 <- sample2[sample2$diff >= 0,]
+
+# 1) In general
 fit <- survfit(Surv(sample3$diff,ifelse(sample3$deposed == 'Deposed',1,0)) ~ 1,data=sample3,
                conf.type='log-log')
 summary(fit)
-
+# 2) By gender
 fit2 <- survfit(Surv(sample3$diff,ifelse(sample3$deposed == 'Deposed',1,0)) ~ sample3$gender,data=sample3,
                 conf.type='log-log')
 summary(fit2)
-# No significant differences between genders
 (result_surv1 <- survdiff(Surv(sample3$diff) ~ sample3$gender,data=sample3))
-
+# 3) By village
 fit3 <- survfit(Surv(sample3$diff,ifelse(sample3$deposed == 'Deposed',1,0)) ~ sample3$placename,data=sample3,
                 conf.type='log-log')
 summary(fit3)
-# Significant differences between villages: Less likely to survive in Mas-Saintes-Puelles
 (result_surv2 <- survdiff(Surv(sample3$diff) ~ sample3$placename,data=sample3))
 
 # Visualisations
@@ -153,7 +158,7 @@ p2$plot <- p2$plot +
   annotate("text", x=200,y=0.25,
            label=paste('Chisq =',round(result_surv1$chisq,1),
                        '\n p =',round(pchisq(result_surv1$chisq,1,lower.tail=FALSE),3),sep=' ')) +
-  ylab('') + xlab('Days after (first) inculpation')
+  ylab('') + xlab('Days after (first) incrimination')
 
 p3 <- ggsurvplot(fit3,data=sample3,
            legend.title = "",
