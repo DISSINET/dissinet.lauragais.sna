@@ -1,7 +1,7 @@
 ## DATA FROM MS 609 (BIBLIOTHEQUE DE TOULOUSE) COLLECTED BY JEAN-PAUL REHR
 ## Exploratory script
 ## R script written by Jose Luis Estevez (Masaryk University)
-## Date: March 15th 2022
+## Date: March 30th 2022
 ########################################################################################################################
 
 # DATA LOADING
@@ -43,9 +43,21 @@ people[people$surname == 'MontrÃ©al',]$surname <- 'Montreal'
 people[people$surname == 'Porquer nÃ©e Garric',]$surname <- 'Porquer'
 people[people$surname == 'Quiders nÃ©e Laura',]$surname <- 'Quiders'
 people[people$surname == 'Amaniels',]$surname <- 'Amanielhs' #there is a missing H
-
 people[people$surname %in% c('','B','B.','F','R','W.'),]$surname <- NA # Missing surnames to NA
-people[people$name == 'Peire_de_Rosengue_MSP-AU',]$gender <- 'male' # Peire is a male, not a female
+
+# Correction of gender
+# Peire is male
+people[people$name == 'Peire_de_Rosengue_MSP-AU',]$gender <- 'male' 
+people[people$name == 'Peire_Mamiro_MSP-AU',]$gender <- 'male'
+people[people$name == 'Peire_de_Milhar_MSP-AU',]$gender <- 'male'
+# Raimund is male
+people[people$name == 'Raimund_de_Ponte_MSP-AU',]$forename <- 'Raimund'
+people[people$name == 'Raimund_de_Ponte_MSP-AU',]$gender <- 'male'
+# Raimunda is female
+people[people$name == 'Raimunda_de_Morer_MSP-AU',]$gender <- 'female' 
+people[people$name == 'Raimunda_Johan_de_Verazilh_SML-AU',]$gender <- 'female'
+people[people$name == 'Raimunda_Mundissa_MSP-AU',]$gender <- 'female'
+people[people$name == 'Raimunda_Vadis_MSP-AU',]$gender <- 'female'
 
 # Bernard de Saint-Julian is Bernard de Saint-Julia (duplicated person)
 people[people$name == 'Bernard_de_Saint-Julian_LRC-AU',]$name <- 'Bernard_de_Saint-Julia_StJU-HG'
@@ -53,14 +65,117 @@ people[people$name == 'Bernard_de_Saint-Julia_StJU-HG',]$surname <- 'Saint-Julia
 people[people$name == 'Bernard_de_Saint-Julia_StJU-HG',]$place_id <- 'Saint-Julia_Haute-Garonne'
 dep_event_people[dep_event_people$pers_id == 'Bernard_de_Saint-Julian_LRC-AU',]$pers_id <- 'Bernard_de_Saint-Julia_StJU-HG'
 
-# Guilhem Mas Palaisin is mentioned by his brother Bernard Mas senior but not in a heretic event. 
-# According to Bernard, he was trying to save their mother and sister from heresy
+# W de na Vierna is Guilhem de na Vierna
+people[people$name == 'W_de_Na_Vierna_MSP-AU',]$name <- 'Guilhem_de_Na_Vierna_MSP-AU'
+people[people$name == 'Guilhem_de_Na_Vierna_MSP-AU',]$gender <- 'male'
+dep_event_people[dep_event_people$pers_id == 'W_de_Na_Vierna_MSP-AU',]$pers_id <- 'Guilhem_de_Na_Vierna_MSP-AU' 
+
+# Raimund Vilandi, Raimund Vilandina, and Raimund Viliari are the same person
+people[people$name == 'Raimund_Viliari_SML-AU',]$name <- 'Raimund_Vilandina_SML-AU'
+people[people$name == 'Raimund_Vilandi_SML-AU',]$name <- 'Raimund_Vilandina_SML-AU'
+depositions[depositions$deponent_pers_id == 'Raimund_Vilandi_SML-AU',]$deponent_pers_id  <- 'Raimund_Vilandina_SML-AU'
+dep_event_people[dep_event_people$pers_id == 'Raimund_Viliari_SML-AU',]$pers_id  <- 'Raimund_Vilandina_SML-AU'
+dep_event_people[dep_event_people$pers_id == 'Raimund_Vilandi_SML-AU',]$pers_id  <- 'Raimund_Vilandina_SML-AU'
+
+# Raimund dels Alaman is Raimund Alaman (duplicated person)
+dep_event_people[dep_event_people$pers_id == 'Raimund_dels_Alamans_MSP-AU',]$pers_id <- 'Raimund_Alaman_MSP-AU'
+people[people$name == 'Raimund_dels_Alamans_MSP-AU',]$name <- 'Raimund_Alaman_MSP-AU'
+
+# There are two different Raimunda Gastanha (need of a new ID)
+depositions[depositions$deponent_pers_id == 'Raimunda_Gastanh_MSP-AU' &
+              depositions$document_id == 'MS609-0390',]$deponent_pers_id <- 'Raimunda_Gastanh_2_MSP-AU' # this ID is new
+dep_event_people[dep_event_people$event_id == 'MS609-0390-1' & 
+                   dep_event_people$pers_id == 'Raimunda_Gastanh_MSP-AU',]$pers_id <- 'Raimunda_Gastanh_2_MSP-AU'
+people[nrow(people)+1,] <- people[people$name == 'Raimunda_Gastanh_MSP-AU',]
+people[nrow(people),]$name <- 'Raimunda_Gastanh_2_MSP-AU'
+  
+# Raimund Aleman Junior is also Raimund Alaman
+people[people$name == 'Raimund_Aleman_Junior_MSP-AU',]$name <- 'Raimund_Alaman_MSP-AU'
+dep_event_people[dep_event_people$pers_id == 'Raimund_Aleman_Junior_MSP-AU',]$pers_id <- 'Raimund_Alaman_MSP-AU'
+
+# This is the same Esteve Faure
+people[people$name == 'Esteve_Faure_2_SML-AU',]$name <- 'Esteve_Faure_SML-AU'
+dep_event_people[dep_event_people$event_id == 'MS609-3737-1' &
+                   dep_event_people$pers_id == 'Esteve_Faure_2_SML-AU',]$pers_id <- 'Esteve_Faure_SML-AU'
+
+# And this is the same Peire Folc
+people[people$name == 'Peire_Folc_2_SML-AU',]$name <- 'Peire_Folc_SML-AU'
+dep_event_people[dep_event_people$event_id == 'MS609-3746-1' &
+                   dep_event_people$pers_id == 'Peire_Folc_2_SML-AU',]$pers_id <- 'Peire_Folc_SML-AU'
+
+# Bernard 'place holder' Mir is Bernard Mir junior
+people[people$name == 'Bernard_place_holder_Mir_SML-AU',]$name <- 'Bernard_Mir_Junior_SML-AU'
+depositions[depositions$deponent_pers_id == 'Bernard_place_holder_Mir_SML-AU',]$deponent_pers_id <- 'Bernard_Mir_Junior_SML-AU'
+dep_event_people[dep_event_people$pers_id == 'Bernard_place_holder_Mir_SML-AU',]$pers_id <- 'Bernard_Mir_Junior_SML-AU'
+# The person referred here is Bernard Mir junior, not Senior
+dep_event_people[dep_event_people$event_id == 'MS609-0585-2' & 
+                   dep_event_people$pers_id == 'Bernard_Mir_SML-AU',]$pers_id <- 'Bernard_Mir_Junior_SML-AU'
+
+# Guilhem Mas and Guilhem Palazis are mentioned by Bernard Mas senior but not in a heretic event. 
+# According to Bernard, they were trying to save their mother and sister from heresy
 dep_event_people[dep_event_people$event_id == 'MS609-0199-9' &
-  dep_event_people$pers_id == 'Guilhem_del_Mas_Chap_MasSaintesPuelles',]$role <- 'none'
+                   dep_event_people$pers_id == 'Guilhem_del_Mas_Senior_MSP-AU',]$role <- 'npar'
+dep_event_people[dep_event_people$event_id == 'MS609-0199-9' &
+                   dep_event_people$pers_id == 'Guilhem_del_Mas_Chap_MasSaintesPuelles',]$role <- 'npar'
+
+# Garnier is referring to his own son Pons Garnier, not to Pons Gauta
+dep_event_people[dep_event_people$event_id == 'MS609-0182-4' & 
+                   dep_event_people$pers_id == 'Pons_Gauta_MSP-AU',]$pers_id <- 'Pons_Garnier_MSP-AU'
 
 # The person Guilhem Mas junior is referring to is his brother Jordanet (or Jordan junior), not his uncle Jordan
 dep_event_people[dep_event_people$event_id == 'MS609-0203-2' & 
                    dep_event_people$pers_id == 'Jordan_del_Mas_MSP-AU',]$pers_id <- 'Jordanet_del_Mas_MSP-AU'
+dep_event_people[dep_event_people$event_id == 'MS609-0207-7' & 
+                   dep_event_people$pers_id == 'Jordan_del_Mas_MSP-AU',]$pers_id <- 'Jordanet_del_Mas_MSP-AU'
+
+# The mother of Guilhem Canast-Brus is Peirona Canast, not Guilhelma Canast
+dep_event_people[dep_event_people$event_id == 'MS609-0207-5' & 
+                   dep_event_people$pers_id == 'Guilhelma_Canast_de_Paracol_MSP-AU',]$pers_id <- 'Peirona_Canast_mother_MSP-AU'
+dep_event_people[dep_event_people$event_id == 'MS609-0015-4' & 
+                   dep_event_people$pers_id == 'Guilhelma_Canast_de_Paracol_MSP-AU',]$pers_id <- 'Peirona_Canast_mother_MSP-AU'
+
+# The Jordan Mas referred is said to be deceased, but this Jordan Mas deposed the day before...
+dep_event_people[dep_event_people$event_id == 'MS609-0211-11' & dep_event_people$pers_id == 'Jordan_del_Mas_MSP-AU',]
+dep_event_people <- dep_event_people[-4028,] # I just removed this inculpation
+
+# The husband of Peregrina de Mont-Serveur is Ysarn the Mont-Serveur, not Ysarn de Fanjeaux
+dep_event_people[dep_event_people$event_id == 'MS609-0015-1' & 
+                   dep_event_people$pers_id == 'Ysarn_de_Fanjeaux_FJX-AU',]$pers_id <- 'Ysarn_de_Mont_Server_SRZ-TA'
+
+# The brother of Peire Faure is Arnald Faure of SML, not of MSP
+dep_event_people[dep_event_people$event_id == 'MS609-0454-1' & 
+                   dep_event_people$pers_id == 'Arnald_Faure_MSP-AU',]$pers_id <- 'Arnald_Faure_SML-AU'
+
+# The husband of Auda Comas is Pons not Peire Comas
+dep_event_people[dep_event_people$event_id == 'MS609-0534-1' & 
+                   dep_event_people$pers_id == 'Peire_Comas_SML-AU',]$pers_id <- 'Pons_Comas_SML-AU'
+
+# I will not consider the episode of Bernard Quiders urinating over Peire Ramond Prosat an inculpation whatsoever, so 
+# the owner of the house must not be inculpated
+dep_event_people[dep_event_people$event_id == 'MS609-0206-1' &
+                   dep_event_people$role == 'own',]$role <- 'npar'
+
+# W Babau is said explicitly not to adore the heretics
+dep_event_people[dep_event_people$event_id == 'MS609-0566-1' &
+                   dep_event_people$pers_id == 'W_Babau_CNY-AU',]$role <- 'npar'
+
+# The husband of Ermengarde Gazanha (2) is Pons not Piere
+dep_event_people[dep_event_people$event_id == 'MS609-0379-1' &
+                   dep_event_people$pers_id == 'Peire_Gazanha_MSP-AU',]$pers_id <- 'Pons_Gazanha_MSP-AU'
+
+# The Raimund Alaman here is the father, not the son
+dep_event_people[dep_event_people$event_id == 'MS609-0214-1' &
+                   dep_event_people$pers_id == 'Raimund_Alaman_MSP-AU',]$pers_id <- 'Raimund_Alaman_Sr_MSP-AU' # new ID
+
+# References but not participants
+dep_event_people[dep_event_people$event_id == 'MS609-0211-1' & 
+                   dep_event_people$pers_id == 'Guilhem_del_Mas_Senior_MSP-AU',]$role <- 'ref'
+dep_event_people[dep_event_people$event_id == 'MS609-0211-2' & 
+                   dep_event_people$pers_id == 'Guilhem_del_Mas_Senior_MSP-AU',]$role <- 'ref'
+dep_event_people[dep_event_people$event_id == 'MS609-0211-8' & 
+                   dep_event_people$pers_id == 'Bernard_Barrau_MSP-AU',]$role <- 'ref'
+dep_event_people[dep_event_people$event_id == 'MS609-0299-1' & 
+                   dep_event_people$pers_id == 'Guilhem_Ramanh_MSP-AU',]$role <- 'ref'
 
 ########################################################################################################################
 
@@ -251,13 +366,14 @@ plot(inculp_ntw,
      vertex.color=ifelse(degree(inculp_ntw,mode='total') == 0,grey(0.5,0.2),
                          ifelse(V(inculp_ntw)$village == 'Mas-Saintes-Puelles','sienna3',
                                 ifelse(V(inculp_ntw)$village == 'Saint-Martin-Lalande','springgreen4',
-                                       ifelse(V(inculp_ntw)$village == 'Laurac','deeppink','gold')))),
+                                       ifelse(V(inculp_ntw)$village == 'Laurac','deeppink','goldenrod3')))),
      vertex.frame.color=ifelse(degree(inculp_ntw,mode='total') == 0,grey(0,0.2),'black'),
      edge.arrow.size=.2,edge.color=gray(0.35),edge.lty=1,
      layout=inculp_layout,
      main='Inculpations contained in Manuscript 609 (Bibliotheque de Toulouse)')
-legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Laurac','Somewhere else'),
-       fill=c('sienna3','springgreen4','deeppink','gold'))
+legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Laurac','Somewhere else','Unknown'),
+       pch=21,pt.bg=c('sienna3','springgreen4','deeppink','goldenrod3','white'),
+       pt.cex=1.25, cex=1.25, ncol=1)
 dev.off()
 
 # Extraction of number of targets per deponent (and inculpations received)
@@ -319,7 +435,7 @@ rm(nodesSet1);rm(nodesSet2);rm(edgeList);rm(edgeListVec);rm(add_deps)
 # Extraction of number of targets per deposition
 inculp_by_deposition <- data.frame(document_id=V(g)$name[V(g)$type == 'deposition'],
                                    inculp = as.vector(degree(g,mode='out'))[1:685])
-depositions <- merge(depositions,inculp_by_deposition,by='document_id')
+depositions <- merge(depositions,inculp_by_deposition,by='document_id',all.x=TRUE)
 rm(inculp_by_deposition)
 
 summary(depositions$inculp)
@@ -415,15 +531,15 @@ for(i in match(as.character(dates_to_plot),as.character(names(snapshot_ntw)))){
        vertex.color=ifelse(degree(snapshot_ntw[[i]],mode='total') == 0,grey(0.5,0.2),
                            ifelse(V(snapshot_ntw[[i]])$village == 'Mas-Saintes-Puelles','sienna3',
                                   ifelse(V(snapshot_ntw[[i]])$village == 'Saint-Martin-Lalande','springgreen4',
-                                         ifelse(V(snapshot_ntw[[i]])$village == 'Laurac','deeppink','gold')))),
+                                         ifelse(V(snapshot_ntw[[i]])$village == 'Laurac','deeppink','goldenrod3')))),
        vertex.frame.color=ifelse(degree(snapshot_ntw[[i]],mode='total') == 0,grey(0,0.2),'black'),
        edge.width=.5,edge.arrow.size=.15,edge.lty=1,
        edge.color= ifelse(E(snapshot_ntw[[i]])$dep_date != key_dates[i],gray(0.15),'red'),
        layout=inculp_layout,
        main=paste('Inculpations by',names(snapshot_ntw)[[i]]),sep=' ')
 }
-legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Laurac','Somewhere else'),
-       fill=c('sienna3','springgreen4','deeppink','gold'))
+legend("bottomright",bty="o",legend=c('Mas-Saintes-Puelles','Saint-Martin-Lalande','Laurac','Somewhere else','Unknown'),
+       pch=21,pt.bg=c('sienna3','springgreen4','deeppink','goldenrod3','white'))
 dev.off()
 
 rm(dates_to_plot);rm(key_dates);rm(i)
