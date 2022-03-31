@@ -111,6 +111,12 @@ dep_event_people[dep_event_people$pers_id == 'Bernard_place_holder_Mir_SML-AU',]
 dep_event_people[dep_event_people$event_id == 'MS609-0585-2' & 
                    dep_event_people$pers_id == 'Bernard_Mir_SML-AU',]$pers_id <- 'Bernard_Mir_Junior_SML-AU'
 
+# The B Vezia referred by Peirona and Romana is not B Vezia but probably B Veziat
+dep_event_people[dep_event_people$event_id == 'MS609-0253-1' & 
+                   dep_event_people$pers_id == 'B_Vezia_MSP-AU',]$pers_id <- 'B_Veziat_MSP-AU'
+dep_event_people[dep_event_people$event_id == 'MS609-0254-1' & 
+                   dep_event_people$pers_id == 'B_Vezia_MSP-AU',]$pers_id <- 'B_Veziat_MSP-AU'
+
 # Guilhem Mas and Guilhem Palazis are mentioned by Bernard Mas senior but not in a heretic event. 
 # According to Bernard, they were trying to save their mother and sister from heresy
 dep_event_people[dep_event_people$event_id == 'MS609-0199-9' &
