@@ -187,6 +187,10 @@ dep_event_people[dep_event_people$event_id == 'MS609-0211-8' &
 dep_event_people[dep_event_people$event_id == 'MS609-0299-1' & 
                    dep_event_people$pers_id == 'Guilhem_Ramanh_MSP-AU',]$role <- 'ref'
 
+# Arnald Picrelh is said to have argued with the heretics... I will not consider that an incrimination
+dep_event_people[dep_event_people$pers_id == 'Arnald_Picrelh_MSP-AU' &
+                   dep_event_people$role == 'par',]$role <- 'npar'
+
 ########################################################################################################################
 
 # This is to facilitate connection among datasets
