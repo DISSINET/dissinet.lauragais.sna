@@ -173,6 +173,10 @@ dep_event_people[dep_event_people$event_id == 'MS609-0379-1' &
 dep_event_people[dep_event_people$event_id == 'MS609-0214-1' &
                    dep_event_people$pers_id == 'Raimund_Alaman_MSP-AU',]$pers_id <- 'Raimund_Alaman_Sr_MSP-AU' # new ID
 
+# The late B Roger, wife of Raimunda, is not B Roger, wife of Galhard
+dep_event_people[dep_event_people$event_id == 'MS609-0150-1' &
+                   dep_event_people$pers_id == 'B_Roger_2_MSP-AU',]$pers_id <- 'B_Roger_3_MSP-AU' # new ID
+
 # References but not participants
 dep_event_people[dep_event_people$event_id == 'MS609-0211-1' & 
                    dep_event_people$pers_id == 'Guilhem_del_Mas_Senior_MSP-AU',]$role <- 'ref'
