@@ -9,7 +9,7 @@ rm(list=ls())
 load('Toulouse_data.RData')
 deceased <- readxl::read_excel('MS609_extrainfo.xlsx',sheet='deceased')
 # Required packages
-library(ggplot2);library(igraph);library(stringr);library(ggpubr)
+library(ggplot2);library(sna);library(igraph);library(stringr);library(ggpubr)
 library(survival);library(survminer)
 
 ########################################################################################################################
@@ -177,3 +177,44 @@ ggarrange(p1$plot,p2$plot,p3$plot,nrow=1)
 dev.off()
 
 rm(fit);rm(fit2);rm(fit3);rm(p1);rm(p2);rm(p3);rm(result_surv1);rm(result_surv2)
+
+########################################################################################################################
+
+# STABILITY OF THE NETWORK
+
+# Let's get the Hamming distance and Jaccard indices between days
+# First, let's turn the igraph object into matrices
+snapshot_sna <- snapshot_ntw
+
+for(i in seq_along(snapshot_sna)){
+  snapshot_sna[[i]] <- as.matrix(get.adjacency(snapshot_sna[[i]]))
+  diag(snapshot_sna[[i]]) <- NA # remove diagonal
+  snapshot_sna[[i]][rownames(snapshot_sna[[i]]) %in% not_deposed,] <- NA # assign missing data
+}
+
+# Now, let's create a matrix where sending the outcome
+ham <- jac <- matrix(NA,nrow=length(snapshot_sna),ncol=length(snapshot_sna),
+                     dimnames = list(names(snapshot_sna),names(snapshot_sna)))
+
+# And let's define a function to obtain the Jaccard index
+Jaccard <- function(matrix1,matrix2){
+  shared_ties <- matrix1*matrix2
+  diff_ties <- 1*((matrix1+matrix2)==1)
+  denominator <- sum(shared_ties,na.rm=TRUE)+sum(diff_ties,na.rm=TRUE)
+  outcome <- ifelse(denominator==0,0,sum(shared_ties,na.rm=TRUE)/denominator)
+  return(outcome)
+}
+
+# Now, let's obtain the results
+for(i in seq_along(snapshot_sna)){
+  for(j in seq_along(snapshot_sna)){
+    if(i > j){
+      ham[i,j] <- sum(snapshot_sna[[i]] != snapshot_sna[[j]],na.rm = TRUE)
+      jac[i,j] <- Jaccard(snapshot_sna[[i]],snapshot_sna[[j]])
+    }
+  }
+}
+
+########################################################################################################################
+
+save.image('Toulouse_data2.RData')
