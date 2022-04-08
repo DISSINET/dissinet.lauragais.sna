@@ -563,25 +563,35 @@ rm(dates_to_plot);rm(key_dates);rm(i)
 # CROSS-SECTIONAL DESCRIPTION OF THE INCULPATION NETWORK
 
 # Summary table
-inculp_desc <- data.frame(stats=c('N','incriminations','components (n > 1)','largest component','isolates','density','ave degree',
-                                  'sd (out-degree)','sd (in-degree)','recip','recip (deponents only)','trans',
-                                  'trans (deponents only)','degree centr','diameter','ave path length',
+inculp_desc <- data.frame(stats=c('nodes','incriminations','missing-tie fraction',
+                                  'components (n > 1)','size of the largest component','isolates',
+                                  'ave degree','sd (out-degree)','sd (in-degree)',
+                                  'density','reciprocity','transitivity',
                                   'EI (gender)','gender missing','EI (village)','village missing'),
                           value=NA)
 
-# Nodes and ties
+# Let's make a 'network' version of the graph for some descriptives like transitivity (gtrans)
+inculp_sna <- as.matrix(get.adjacency(inculp_ntw))
+diag(inculp_sna) <- NA
+# Let's allocate the missing data here
+not_deposed <- targets_ids[targets_ids %!in% deponents_ids]
+inculp_sna[rownames(inculp_sna) %in% not_deposed,] <- NA
+# Make a network object
+inculp_sna <- network::as.network(inculp_sna)
+
+# Nodes and ties, and missing tie fraction
 inculp_desc[1,'value'] <- vcount(inculp_ntw) 
 inculp_desc[2,'value'] <- ecount(inculp_ntw) 
+inculp_desc[3,'value'] <- network::network.naedgecount(inculp_sna) / (vcount(inculp_ntw) * (vcount(inculp_ntw) -1 ))
 # Components and isolates
 inculp_components <- decompose(inculp_ntw)
-inculp_desc[3,'value'] <- sum(sapply(inculp_components,vcount) > 1)
-inculp_desc[4,'value'] <- max(sapply(inculp_components,vcount))
-inculp_desc[5,'value'] <- sum(sapply(inculp_components,vcount) == 1)
-# Density and degree
-inculp_desc[6,'value'] <- round(edge_density(inculp_ntw),3)
-inculp_desc[7,'value'] <- round(mean(degree(inculp_ntw,mode='out')),3)
-inculp_desc[8,'value'] <- round(sd(degree(inculp_ntw,mode='out')),3)
-inculp_desc[9,'value'] <- round(sd(degree(inculp_ntw,mode='in')),3)
+inculp_desc[4,'value'] <- sum(sapply(inculp_components,vcount) > 1)
+inculp_desc[5,'value'] <- max(sapply(inculp_components,vcount))
+inculp_desc[6,'value'] <- sum(sapply(inculp_components,vcount) == 1)
+# Degree
+inculp_desc[7,'value'] <- mean(degree(inculp_ntw,mode='out'))
+inculp_desc[8,'value'] <- sd(degree(inculp_ntw,mode='out'))
+inculp_desc[9,'value'] <- sd(degree(inculp_ntw,mode='in'))
 
 ggplot()+
   geom_histogram(aes(x=degree(inculp_ntw,mode='out')),
@@ -599,20 +609,15 @@ ggplot()+
   scale_y_log10() +
   grid.background
 
-# Reciprocity and transitivity
-inculp_desc[10,'value'] <- round(reciprocity(inculp_ntw),3)
-inculp_desc[11,'value'] <- round(reciprocity(delete.vertices(inculp_ntw,which(V(inculp_ntw)$name %!in% deponents_ids))),3)
-inculp_desc[12,'value'] <- round(transitivity(inculp_ntw),3)
-inculp_desc[13,'value'] <- round(transitivity(delete.vertices(inculp_ntw,which(V(inculp_ntw)$name %!in% deponents_ids))),3)
-#  Degree centralisation, diameter, ave. path length
-inculp_desc[14,'value'] <- round(centr_degree(inculp_ntw,mode='total')$centralization,3)
-inculp_desc[15,'value'] <- diameter(inculp_ntw,directed = TRUE)
-inculp_desc[16,'value'] <- round(average.path.length(inculp_ntw),3)
+# Density, reciprocity and transitivity
+inculp_desc[10,'value'] <- sna::gden(inculp_sna)
+inculp_desc[11,'value'] <- sna::grecip(inculp_sna,measure='edgewise')
+inculp_desc[12,'value'] <- sna::gtrans(inculp_sna)
 # EI index: remember, -1 means perfect homophily, and 1 perfect heterophily 
-inculp_desc[17,'value'] <- round(ei(inculp_ntw,'gender'),3) 
-inculp_desc[18,'value'] <- sum(is.na(V(inculp_ntw)$gender)) # gender missing
-inculp_desc[19,'value'] <- round(ei(inculp_ntw,'village'),3) 
-inculp_desc[20,'value'] <- sum(is.na(V(inculp_ntw)$village)) # village missing
+inculp_desc[13,'value'] <- ei(inculp_ntw,'gender')
+inculp_desc[14,'value'] <- sum(is.na(V(inculp_ntw)$gender)) # gender missing
+inculp_desc[15,'value'] <- ei(inculp_ntw,'village')
+inculp_desc[16,'value'] <- sum(is.na(V(inculp_ntw)$village)) # village missing
 
 inculp_desc # Summary table
 
